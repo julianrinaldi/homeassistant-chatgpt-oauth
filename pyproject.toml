@@ -1,0 +1,50 @@
+[project]
+name = "homeassistant-chatgpt-oauth"
+version = "1.0.0"
+description = "Unofficial ChatGPT OAuth integration for Home Assistant Assist and AI Tasks"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "ChatGPT OAuth contributors" }]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["custom_components", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "ASYNC",
+  "B",
+  "E",
+  "F",
+  "I",
+  "RUF",
+  "UP",
+  "W",
+]
+ignore = [
+  "E501",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components.openai_oauth_conversation"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

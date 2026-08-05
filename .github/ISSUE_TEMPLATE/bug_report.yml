@@ -1,0 +1,88 @@
+name: Bug report
+description: Report a reproducible problem with ChatGPT OAuth
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste OAuth tokens, callback URLs, `.storage` content, private prompts, images, PDFs, or unreviewed debug logs.
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: home_assistant_version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.8.0
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - HACS
+        - Manual
+    validations:
+      required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Affected feature
+      options:
+        - Setup or OAuth
+        - Assist conversation agent
+        - AI Task generate data
+        - AI Task generate image
+        - Image or PDF attachments
+        - Custom integration action
+        - Reconfiguration or diagnostics
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: Explain what happened and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste or attach diagnostics downloaded from the integration entry. Review them before posting.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant redacted log excerpt
+      description: Include only the smallest relevant excerpt and redact private values.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed credentials, callback URLs, private content, and account identifiers.
+          required: true
+        - label: I am using a supported Home Assistant version.
+          required: true

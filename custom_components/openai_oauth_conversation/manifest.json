@@ -1,0 +1,21 @@
+{
+  "domain": "openai_oauth_conversation",
+  "name": "ChatGPT OAuth",
+  "after_dependencies": [
+    "assist_pipeline",
+    "intent"
+  ],
+  "codeowners": [
+    "@hebs"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "conversation"
+  ],
+  "documentation": "https://github.com/hebs/homeassistant-chatgpt-oauth",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/hebs/homeassistant-chatgpt-oauth/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

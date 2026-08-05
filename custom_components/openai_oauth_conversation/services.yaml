@@ -1,0 +1,135 @@
+generate_content:
+  name: Generate content
+  description: Generate text using the selected ChatGPT OAuth account.
+  fields:
+    config_entry:
+      name: ChatGPT OAuth account
+      description: The configured ChatGPT account to use.
+      required: true
+      selector:
+        config_entry:
+          integration: openai_oauth_conversation
+    prompt:
+      name: Prompt
+      description: The request to send to the model.
+      required: true
+      selector:
+        text:
+          multiline: true
+    model:
+      name: Model
+      description: Optional model override for this action call.
+      required: false
+      selector:
+        select:
+          options:
+            - label: GPT-5.6 Sol
+              value: gpt-5.6-sol
+            - label: GPT-5.6 Terra
+              value: gpt-5.6-terra
+            - label: GPT-5.6 Luna
+              value: gpt-5.6-luna
+            - label: GPT-5.5
+              value: gpt-5.5
+    reasoning_effort:
+      name: Thinking level
+      description: Optional per-call override. It must be supported by the selected model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+            - label: Extra high
+              value: xhigh
+            - label: Max
+              value: max
+            - label: Ultra
+              value: ultra
+analyze_image:
+  name: Analyze image
+  description: Analyze up to ten images from local files, URLs, cameras, or image entities.
+  fields:
+    config_entry:
+      name: ChatGPT OAuth account
+      description: The configured ChatGPT account to use.
+      required: true
+      selector:
+        config_entry:
+          integration: openai_oauth_conversation
+    prompt:
+      name: Prompt
+      description: What the model should determine from the images.
+      required: true
+      selector:
+        text:
+          multiline: true
+    system_prompt:
+      name: System prompt
+      description: Optional system prompt override for this action call.
+      required: false
+      selector:
+        text:
+          multiline: true
+    model:
+      name: Model
+      description: Optional model override for this action call.
+      required: false
+      selector:
+        select:
+          options:
+            - label: GPT-5.6 Sol
+              value: gpt-5.6-sol
+            - label: GPT-5.6 Terra
+              value: gpt-5.6-terra
+            - label: GPT-5.6 Luna
+              value: gpt-5.6-luna
+            - label: GPT-5.5
+              value: gpt-5.5
+    reasoning_effort:
+      name: Thinking level
+      description: Optional per-call override. It must be supported by the selected model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+            - label: Extra high
+              value: xhigh
+            - label: Max
+              value: max
+            - label: Ultra
+              value: ultra
+    image_file:
+      name: Image files
+      description: One or more image files from an allowed Home Assistant path.
+      required: false
+      selector:
+        text:
+          multiple: true
+    image_url:
+      name: Image URLs
+      description: One or more HTTP or HTTPS image URLs.
+      required: false
+      selector:
+        text:
+          multiple: true
+    entity_id:
+      name: Camera or image entities
+      description: One or more camera or image entities.
+      required: false
+      selector:
+        entity:
+          domain:
+            - camera
+            - image
+          multiple: true

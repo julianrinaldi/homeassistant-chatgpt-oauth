@@ -1,0 +1,79 @@
+{
+  "title": "ChatGPT OAuth",
+  "config": {
+    "step": {
+      "user": {
+        "title": "ChatGPT OAuth",
+        "description": "Choose the model and default behavior for this ChatGPT account. Authentication is completed in the next steps.",
+        "data": {
+          "name": "Name",
+          "model": "Model",
+          "enable_home_assistant_control": "Enable Home Assistant control",
+          "prompt": "System prompt"
+        },
+        "data_description": {
+          "name": "A friendly name for this account in Home Assistant.",
+          "model": "The model used by Assist and AI Task actions.",
+          "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "prompt": "Default instructions used by the Assist agent and integration actions."
+        }
+      },
+      "reasoning": {
+        "title": "Thinking level",
+        "description": "Choose a thinking level available for **{model}**. Higher levels can improve difficult tasks but may respond more slowly. Ultra uses Max model reasoning because Codex subagent delegation is not available inside Home Assistant.",
+        "data": {
+          "reasoning_effort": "Thinking level"
+        }
+      },
+      "auth_manual": {
+        "title": "Sign in to ChatGPT",
+        "description": "1. Open [the ChatGPT sign-in page]({authorize_url}).\n2. Complete sign-in in your browser.\n3. The browser will finish on a localhost page that may show a connection error. Copy the **entire URL** from the address bar.\n4. Paste that URL below.\n\nThe callback URL contains a short-lived authorization code. Do not share it.",
+        "data": {
+          "callback_url": "Callback URL"
+        },
+        "data_description": {
+          "callback_url": "Paste the complete localhost callback URL from the browser address bar."
+        }
+      },
+      "reconfigure": {
+        "title": "ChatGPT OAuth settings",
+        "description": "Update the name, model, Home Assistant control access, or default system prompt. Your OAuth credentials are not changed.",
+        "data": {
+          "name": "Name",
+          "model": "Model",
+          "enable_home_assistant_control": "Enable Home Assistant control",
+          "prompt": "System prompt"
+        },
+        "data_description": {
+          "name": "A friendly name for this account in Home Assistant.",
+          "model": "The model used by Assist and AI Task actions.",
+          "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "prompt": "Default instructions used by the Assist agent and integration actions."
+        }
+      },
+      "reconfigure_reasoning": {
+        "title": "Thinking level",
+        "description": "Choose a thinking level available for **{model}**. Higher levels can improve difficult tasks but may respond more slowly. Ultra uses Max model reasoning because Codex subagent delegation is not available inside Home Assistant.",
+        "data": {
+          "reasoning_effort": "Thinking level"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the ChatGPT service. Check the Home Assistant network connection and try again.",
+      "invalid_auth": "ChatGPT rejected the sign-in or credentials. Start the sign-in step again.",
+      "invalid_response": "ChatGPT returned an unsupported response during setup.",
+      "missing_code": "Paste the complete callback URL or an authorization code.",
+      "rate_limited": "The signed-in ChatGPT account is currently rate limited. Try again after its usage limit resets.",
+      "state_mismatch": "The callback belongs to a different setup attempt. Restart setup and use the newly generated sign-in link.",
+      "unknown": "An unexpected error occurred while setting up ChatGPT OAuth.",
+      "unsupported_model": "Select one of the models shown in the list.",
+      "unsupported_reasoning": "Select a thinking level available for the chosen model."
+    },
+    "abort": {
+      "already_configured": "This ChatGPT account is already configured.",
+      "reauth_successful": "ChatGPT OAuth authentication was renewed successfully.",
+      "reconfigure_successful": "ChatGPT OAuth settings were updated successfully."
+    }
+  }
+}

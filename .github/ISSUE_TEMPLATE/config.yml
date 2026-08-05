@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/hebs/homeassistant-chatgpt-oauth/security/advisories/new
+    about: Report credential exposure or another vulnerability privately.
+  - name: Home Assistant community support
+    url: https://community.home-assistant.io/
+    about: Ask general Home Assistant configuration questions.
