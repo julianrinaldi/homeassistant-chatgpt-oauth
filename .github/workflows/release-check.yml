@@ -1,0 +1,64 @@
+name: Release check
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Validate version consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest_version="$(jq -r '.version' custom_components/openai_oauth_conversation/manifest.json)"
+          project_version="$(python - <<'PY'
+          import tomllib
+          with open('pyproject.toml', 'rb') as file:
+              print(tomllib.load(file)['project']['version'])
+          PY
+          )"
+          test "$manifest_version" = "$project_version"
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            test "${GITHUB_REF_NAME#v}" = "$manifest_version"
+          fi
+      - name: Validate metadata
+        run: |
+          jq -e . hacs.json >/dev/null
+          jq -e . custom_components/openai_oauth_conversation/manifest.json >/dev/null
+          jq -e . custom_components/openai_oauth_conversation/strings.json >/dev/null
+          jq -e . custom_components/openai_oauth_conversation/translations/en.json >/dev/null
+      - name: Reject generated or private files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '*.pyc' -o -name '.env' -o -name '.storage' \) | grep -q .; then
+            echo "Generated or private files are present"
+            exit 1
+          fi
+          if grep -RIlE '(access_token|refresh_token)["'"'=: ]+[A-Za-z0-9._~+/-]{24,}' . \
+             --exclude-dir=.git --exclude='*.md' --exclude='*.py'; then
+            echo "A possible credential was found"
+            exit 1
+          fi
+      - name: Build source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(jq -r '.version' custom_components/openai_oauth_conversation/manifest.json)"
+          git archive --format=zip --prefix="homeassistant-chatgpt-oauth-${version}/" \
+            -o "homeassistant-chatgpt-oauth-${version}.zip" HEAD
+          sha256sum "homeassistant-chatgpt-oauth-${version}.zip"
+      - name: Upload validated archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-source
+          path: homeassistant-chatgpt-oauth-*.zip

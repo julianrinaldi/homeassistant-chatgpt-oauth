@@ -1,0 +1,10 @@
+{
+  "services": {
+    "generate_content": {
+      "service": "mdi:message-text-fast"
+    },
+    "analyze_image": {
+      "service": "mdi:image-search"
+    }
+  }
+}
