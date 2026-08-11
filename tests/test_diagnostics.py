@@ -14,6 +14,10 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
 )
 from custom_components.openai_oauth_conversation.diagnostics import (
@@ -32,13 +36,17 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Primary account",
-        version=6,
+        version=7,
         data={
             **secrets,
             CONF_EXPIRES: 4_000_000_000_000,
             CONF_ENABLE_HASS_CONTROL: False,
             CONF_MODEL: "gpt-5.6-terra",
             CONF_REASONING_EFFORT: "high",
+            CONF_WEB_SEARCH_MODE: "required",
+            CONF_WEB_SEARCH_CONTEXT_SIZE: "high",
+            CONF_WEB_SEARCH_LIVE_ACCESS: False,
+            CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
         },
     )
     entry.add_to_hass(hass)
@@ -50,3 +58,11 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     assert diagnostics["config_entry"]["home_assistant_control_enabled"] is False
     assert diagnostics["model"]["slug"] == "gpt-5.6-terra"
     assert diagnostics["model"]["thinking_level"] == "high"
+    assert diagnostics["model"]["supports_web_search"] is True
+    assert diagnostics["web_search"] == {
+        "mode": "required",
+        "context_size": "high",
+        "live_access": False,
+        "uses_home_assistant_location": True,
+        "location_detail": "country_and_timezone_only",
+    }

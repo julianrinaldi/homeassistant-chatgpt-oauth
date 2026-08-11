@@ -20,6 +20,7 @@ class ModelProfile:
     supports_files: bool = True
     supports_tools: bool = True
     supports_structured_output: bool = True
+    supports_web_search: bool = True
 
 
 MODEL_PROFILES: Final[dict[str, ModelProfile]] = {

@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.0.0"
+INTEGRATION_VERSION: Final = "1.1.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -20,6 +20,10 @@ CONF_ENABLE_HASS_CONTROL: Final = "enable_home_assistant_control"
 CONF_MODEL: Final = "model"
 CONF_PROMPT: Final = "prompt"
 CONF_REASONING_EFFORT: Final = "reasoning_effort"
+CONF_WEB_SEARCH_MODE: Final = "web_search_mode"
+CONF_WEB_SEARCH_CONTEXT_SIZE: Final = "web_search_context_size"
+CONF_WEB_SEARCH_LIVE_ACCESS: Final = "web_search_live_access"
+CONF_WEB_SEARCH_USE_HASS_LOCATION: Final = "web_search_use_home_assistant_location"
 
 DEFAULT_NAME: Final = INTEGRATION_NAME
 DEFAULT_ENABLE_HASS_CONTROL: Final = True
@@ -28,6 +32,11 @@ DEFAULT_PROMPT: Final = (
     "You are a helpful voice assistant for Home Assistant. "
     "Answer concisely, naturally, and accurately."
 )
+DEFAULT_WEB_SEARCH_MODE: Final = "disabled"
+DEFAULT_WEB_SEARCH_CONTEXT_SIZE: Final = "medium"
+DEFAULT_WEB_SEARCH_LIVE_ACCESS: Final = True
+DEFAULT_WEB_SEARCH_USE_HASS_LOCATION: Final = False
+
 DEFAULT_AI_TASK_SYSTEM_PROMPT: Final = (
     "You are a Home Assistant expert. Follow the user's task instructions and "
     "return only the requested result."
@@ -50,6 +59,7 @@ CODEX_USER_AGENT: Final = (
 
 SERVICE_GENERATE_CONTENT: Final = "generate_content"
 SERVICE_ANALYZE_IMAGE: Final = "analyze_image"
+SERVICE_WEB_SEARCH: Final = "web_search"
 
 MAX_TOOL_ITERATIONS: Final = 10
 TEXT_REQUEST_TIMEOUT: Final = 180

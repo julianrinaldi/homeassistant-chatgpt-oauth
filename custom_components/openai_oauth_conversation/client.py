@@ -24,8 +24,16 @@ from .const import (
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
+    DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+    DEFAULT_WEB_SEARCH_MODE,
+    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
     IMAGE_REQUEST_TIMEOUT,
     LEGACY_OUTPUT_LIMIT_KEY,
     LOGGER,
@@ -58,11 +66,17 @@ from .responses import (
     ChatGPTTextResponse,
     ChatGPTTurn,
     decode_image_item,
+    dedupe_citations,
+    dedupe_searches,
     extract_function_call,
     image_items_from_event,
+    render_text_with_web_citations,
     response_error_message,
     response_output_items,
     text_from_output_items,
+    url_citation_from_annotation,
+    url_citations_from_output_items,
+    web_search_actions_from_output_items,
 )
 from .schema import (
     fallback_json_instructions,
@@ -71,6 +85,16 @@ from .schema import (
     structured_output_format,
 )
 from .sse import iter_sse_json
+from .web_search import (
+    WEB_SEARCH_TOOL_TYPES,
+    WebSearchOptions,
+    build_web_search_tool,
+    combine_instructions,
+    normalize_allowed_domains,
+    normalize_web_search_context_size,
+    normalize_web_search_mode,
+    web_search_instructions,
+)
 
 
 def serialize_request_payload(payload: dict[str, Any]) -> bytes:
@@ -151,8 +175,13 @@ def build_turn_payload(
     parallel_tool_calls: bool | None = None,
     text_format: dict[str, Any] | None = None,
     reasoning_effort: str | None = None,
+    include: list[str] | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    """Build a normal Responses or GPT-5.6 Responses Lite request."""
+    """Build a normal Responses or GPT-5.6 Responses Lite request.
+
+    Native hosted tools such as OpenAI web search require the full Responses
+    transport. Function-only turns retain Responses Lite for compatible models.
+    """
     profile = get_model_profile(model)
     configured_effort = normalize_reasoning_effort(
         profile.slug,
@@ -162,13 +191,18 @@ def build_turn_payload(
         profile.slug,
         configured_effort,
     )
+    active_tools = list(tools or [])
+    has_web_search = any(
+        tool.get("type") in WEB_SEARCH_TOOL_TYPES for tool in active_tools
+    )
+    use_responses_lite = profile.responses_lite and not has_web_search
 
-    if profile.responses_lite:
+    if use_responses_lite:
         lite_input: list[dict[str, Any]] = [
             {
                 "type": "additional_tools",
                 "role": "developer",
-                "tools": list(tools or []),
+                "tools": active_tools,
             }
         ]
         if instructions:
@@ -195,6 +229,10 @@ def build_turn_payload(
             "stream": True,
             "store": False,
         }
+        if include:
+            payload["include"] = list(
+                dict.fromkeys([*payload["include"], *include])
+            )
         if text_format is not None:
             payload["text"]["format"] = text_format
         return payload, True
@@ -210,11 +248,13 @@ def build_turn_payload(
         payload["instructions"] = instructions
     if text_format is not None:
         payload["text"] = {"format": text_format}
-    if tools:
-        payload["tools"] = tools
+    if active_tools:
+        payload["tools"] = active_tools
         payload["tool_choice"] = tool_choice or "auto"
         if parallel_tool_calls is not None:
             payload["parallel_tool_calls"] = parallel_tool_calls
+    if include:
+        payload["include"] = list(dict.fromkeys(include))
     return payload, False
 
 
@@ -243,6 +283,19 @@ def _event_exception(event: dict[str, Any], *, operation: str) -> ChatGPTOAuthEr
     if "unauthorized" in lowered or "authentication" in lowered:
         return AuthenticationError(message)
     return ResponseParseError(message)
+
+
+def _validate_required_web_search(
+    options: WebSearchOptions | None,
+    *,
+    citations: list[Any],
+    searches: list[Any],
+) -> None:
+    """Reject a required-search response that contains no search evidence."""
+    if options is not None and options.required and not (citations or searches):
+        raise ResponseParseError(
+            "ChatGPT did not perform the required OpenAI web search"
+        )
 
 
 class ChatGPTOAuthClient:
@@ -283,6 +336,11 @@ class ChatGPTOAuthClient:
         value = self.entry.data.get(CONF_PROMPT, DEFAULT_PROMPT)
         return value if isinstance(value, str) and value.strip() else DEFAULT_PROMPT
 
+    @property
+    def web_search_options(self) -> WebSearchOptions:
+        """Return the configured OpenAI web-search behavior."""
+        return self.resolve_web_search_options()
+
     def resolve_model(self, value: object | None = None) -> str:
         """Resolve and validate a configured or per-request model."""
         return get_model_profile(value if value is not None else self.model).slug
@@ -296,6 +354,56 @@ class ChatGPTOAuthClient:
         if value is None:
             return normalize_reasoning_effort(model, self.reasoning_effort)
         return validate_reasoning_effort(model, value)
+
+    def resolve_web_search_options(
+        self,
+        *,
+        mode: object | None = None,
+        context_size: object | None = None,
+        live_access: object | None = None,
+        use_home_assistant_location: object | None = None,
+        allowed_domains: object | None = None,
+    ) -> WebSearchOptions:
+        """Resolve configured and per-request OpenAI web-search options."""
+        configured_mode = normalize_web_search_mode(
+            self.entry.data.get(CONF_WEB_SEARCH_MODE),
+            default=DEFAULT_WEB_SEARCH_MODE,
+        )
+        resolved_mode = normalize_web_search_mode(
+            mode,
+            default=configured_mode,
+        )
+        configured_context_size = normalize_web_search_context_size(
+            self.entry.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+        )
+        resolved_context_size = normalize_web_search_context_size(
+            context_size,
+            default=configured_context_size,
+        )
+        resolved_live_access = (
+            bool(self.entry.data.get(
+                CONF_WEB_SEARCH_LIVE_ACCESS,
+                DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+            ))
+            if live_access is None
+            else bool(live_access)
+        )
+        resolved_location = (
+            bool(self.entry.data.get(
+                CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+            ))
+            if use_home_assistant_location is None
+            else bool(use_home_assistant_location)
+        )
+        return WebSearchOptions(
+            mode=resolved_mode,
+            context_size=resolved_context_size,
+            live_access=resolved_live_access,
+            use_home_assistant_location=resolved_location,
+            allowed_domains=normalize_allowed_domains(allowed_domains),
+        )
 
     @asynccontextmanager
     async def _async_response(
@@ -395,22 +503,49 @@ class ChatGPTOAuthClient:
         parallel_tool_calls: bool | None = None,
         text_format: dict[str, Any] | None = None,
         reasoning_effort: str | None = None,
+        web_search: WebSearchOptions | None = None,
     ) -> ChatGPTTurn:
-        """Run one streamed Responses turn."""
+        """Run one streamed Responses turn with optional native web search."""
         model = self.resolve_model(model)
+        profile = get_model_profile(model)
         reasoning_effort = self.resolve_reasoning_effort(model, reasoning_effort)
+        search_options = web_search or WebSearchOptions()
+        active_tools = list(tools or [])
+        include: list[str] = []
+        active_instructions = instructions
+
+        if search_options.enabled:
+            if not profile.supports_web_search:
+                raise RequestValidationError(
+                    f"OpenAI web search is not available for {model}"
+                )
+            active_tools.append(build_web_search_tool(search_options, self.hass))
+            active_instructions = combine_instructions(
+                instructions,
+                web_search_instructions(search_options),
+            )
+            include.append("web_search_call.action.sources")
+            if search_options.required:
+                tool_choice = "required"
+            elif tool_choice is None:
+                tool_choice = "auto"
+
         payload, responses_lite = build_turn_payload(
             model=model,
-            instructions=instructions,
+            instructions=active_instructions,
             input_items=input_items,
-            tools=tools,
+            tools=active_tools or None,
             tool_choice=tool_choice,
             parallel_tool_calls=parallel_tool_calls,
             text_format=text_format,
             reasoning_effort=reasoning_effort,
+            include=include or None,
         )
 
         retried_without_parallel = False
+        retried_without_sources = False
+        retried_preview = False
+        removed_search_fields: set[str] = set()
         while True:
             LOGGER.debug(
                 "Submitting %s request for %s at thinking level %s with fields %s",
@@ -426,15 +561,129 @@ class ChatGPTOAuthClient:
                 )
             except RequestValidationError as err:
                 message = str(err).lower()
+                unsupported = any(
+                    marker in message
+                    for marker in (
+                        "unsupported",
+                        "unknown parameter",
+                        "unrecognized",
+                        "not supported",
+                        "invalid value",
+                    )
+                )
+
                 if (
                     not responses_lite
                     and not retried_without_parallel
                     and "parallel_tool_calls" in payload
                     and "parallel_tool_calls" in message
-                    and ("unsupported" in message or "unknown" in message)
+                    and unsupported
                 ):
                     payload.pop("parallel_tool_calls", None)
                     retried_without_parallel = True
+                    continue
+
+                if (
+                    not retried_without_sources
+                    and "web_search_call.action.sources"
+                    in payload.get("include", [])
+                    and unsupported
+                    and (
+                        "web_search_call.action.sources" in message
+                        or "include" in message
+                    )
+                ):
+                    payload["include"] = [
+                        item
+                        for item in payload["include"]
+                        if item != "web_search_call.action.sources"
+                    ]
+                    if not payload["include"]:
+                        payload.pop("include", None)
+                    retried_without_sources = True
+                    continue
+
+                tools_payload = payload.get("tools")
+                web_tools = (
+                    [
+                        tool
+                        for tool in tools_payload
+                        if isinstance(tool, dict)
+                        and tool.get("type") in WEB_SEARCH_TOOL_TYPES
+                    ]
+                    if isinstance(tools_payload, list)
+                    else []
+                )
+                optional_fields = (
+                    "external_web_access",
+                    "filters",
+                    "user_location",
+                    "search_context_size",
+                )
+                removed_field = False
+                for field_name in optional_fields:
+                    if (
+                        field_name not in removed_search_fields
+                        and field_name in message
+                        and unsupported
+                        and any(field_name in tool for tool in web_tools)
+                    ):
+                        if (
+                            field_name == "external_web_access"
+                            and not search_options.live_access
+                        ):
+                            raise RequestValidationError(
+                                "The hosted backend rejected cache/index-only "
+                                "web search; refusing to enable live access"
+                            ) from err
+                        if (
+                            field_name == "filters"
+                            and search_options.allowed_domains
+                        ):
+                            raise RequestValidationError(
+                                "The hosted backend rejected the web-search "
+                                "domain allowlist; refusing an unrestricted search"
+                            ) from err
+                        for tool in web_tools:
+                            tool.pop(field_name, None)
+                        removed_search_fields.add(field_name)
+                        removed_field = True
+                        break
+                if removed_field:
+                    continue
+
+                current_tools = [
+                    tool
+                    for tool in web_tools
+                    if tool.get("type") != "web_search_preview"
+                ]
+                if (
+                    current_tools
+                    and not retried_preview
+                    and unsupported
+                    and (
+                        "web_search" in message
+                        or "hosted tool" in message
+                        or "tools" in message
+                    )
+                ):
+                    if not search_options.live_access:
+                        raise RequestValidationError(
+                            "The hosted backend does not support the current "
+                            "cache/index-only web-search request, and the legacy "
+                            "preview tool would enable live access"
+                        ) from err
+                    if search_options.allowed_domains:
+                        raise RequestValidationError(
+                            "The hosted backend does not support the current "
+                            "domain-filtered web-search request, and the legacy "
+                            "preview tool does not enforce domain allowlists"
+                        ) from err
+                    for tool in current_tools:
+                        tool["type"] = "web_search_preview"
+                        tool.pop("external_web_access", None)
+                        tool.pop("filters", None)
+                    retried_preview = True
                     continue
                 raise
 
@@ -447,6 +696,8 @@ class ChatGPTOAuthClient:
         chunks: list[str] = []
         calls: list[llm.ToolInput] = []
         call_ids: set[str] = set()
+        citations = []
+        searches = []
         events: list[dict[str, Any]] = []
 
         try:
@@ -463,12 +714,22 @@ class ChatGPTOAuthClient:
                         chunks.append(str(data.get("delta") or ""))
                     elif event_type == "response.output_text.done" and not chunks:
                         chunks.append(str(data.get("text") or ""))
+                    elif event_type == "response.output_text.annotation.added":
+                        citation = url_citation_from_annotation(
+                            data.get("annotation")
+                        )
+                        if citation is not None:
+                            citations.append(citation)
 
                     if event_type in {
                         "response.output_item.done",
                         "response.completed",
                     }:
                         output_items = response_output_items(data)
+                        citations.extend(url_citations_from_output_items(output_items))
+                        searches.extend(
+                            web_search_actions_from_output_items(output_items)
+                        )
                         for item in output_items:
                             call = extract_function_call(item)
                             if call is None or call.id in call_ids:
@@ -500,6 +761,8 @@ class ChatGPTOAuthClient:
             text="".join(chunks).strip(),
             function_calls=calls,
             raw_events=events,
+            citations=dedupe_citations(citations),
+            searches=dedupe_searches(searches),
         )
 
     async def async_create_response(
@@ -511,6 +774,7 @@ class ChatGPTOAuthClient:
         input_items: list[dict[str, Any]] | None = None,
         text_format: dict[str, Any] | None = None,
         reasoning_effort: str | None = None,
+        web_search: WebSearchOptions | None = None,
     ) -> ChatGPTTextResponse:
         """Create a text response without Home Assistant tools."""
         if input_items is None:
@@ -528,10 +792,27 @@ class ChatGPTOAuthClient:
             input_items=input_items,
             text_format=text_format,
             reasoning_effort=reasoning_effort,
+            web_search=web_search,
         )
         if not turn.text:
             raise ResponseParseError("ChatGPT returned an empty text response")
-        return ChatGPTTextResponse(text=turn.text, raw_events=turn.raw_events)
+        _validate_required_web_search(
+            web_search,
+            citations=turn.citations,
+            searches=turn.searches,
+        )
+        rendered_text = render_text_with_web_citations(
+            turn.text,
+            turn.citations,
+            turn.searches,
+        )
+        return ChatGPTTextResponse(
+            text=rendered_text,
+            raw_text=turn.text,
+            raw_events=turn.raw_events,
+            citations=turn.citations,
+            searches=turn.searches,
+        )
 
     async def async_create_image_response(
         self,
@@ -629,6 +910,7 @@ class ChatGPTOAuthClient:
         structure: vol.Schema | None,
         llm_api: llm.APIInstance | None = None,
         reasoning_effort: str | None = None,
+        web_search: WebSearchOptions | None = None,
     ) -> ChatGPTDataResponse:
         """Generate plain text or schema-validated data for an AI Task."""
         tools = (
@@ -640,6 +922,8 @@ class ChatGPTOAuthClient:
             {"type": "message", "role": "user", "content": content}
         ]
         all_events: list[dict[str, Any]] = []
+        all_citations = []
+        all_searches = []
         text_format = (
             structured_output_format(structure_name, structure, llm_api)
             if structure is not None
@@ -659,6 +943,7 @@ class ChatGPTOAuthClient:
                     parallel_tool_calls=False if tools else None,
                     text_format=text_format,
                     reasoning_effort=reasoning_effort,
+                    web_search=web_search,
                 )
             except ChatGPTOAuthError as err:
                 if (
@@ -677,6 +962,8 @@ class ChatGPTOAuthClient:
                 raise
 
             all_events.extend(turn.raw_events)
+            all_citations.extend(turn.citations)
+            all_searches.extend(turn.searches)
             if turn.function_calls:
                 if llm_api is None:
                     raise ResponseParseError(
@@ -696,10 +983,24 @@ class ChatGPTOAuthClient:
                 )
 
             if structure is None:
+                citations = dedupe_citations(all_citations)
+                searches = dedupe_searches(all_searches)
+                _validate_required_web_search(
+                    web_search,
+                    citations=citations,
+                    searches=searches,
+                )
+                rendered_text = render_text_with_web_citations(
+                    turn.text,
+                    citations,
+                    searches,
+                )
                 return ChatGPTDataResponse(
-                    data=turn.text,
+                    data=rendered_text,
                     text=turn.text,
                     raw_events=all_events,
+                    citations=citations,
+                    searches=searches,
                 )
 
             try:
@@ -715,10 +1016,19 @@ class ChatGPTOAuthClient:
                     continue
                 raise
 
+            citations = dedupe_citations(all_citations)
+            searches = dedupe_searches(all_searches)
+            _validate_required_web_search(
+                web_search,
+                citations=citations,
+                searches=searches,
+            )
             return ChatGPTDataResponse(
                 data=data,
                 text=turn.text,
                 raw_events=all_events,
+                citations=citations,
+                searches=searches,
             )
 
         raise ResponseParseError(
@@ -736,6 +1046,7 @@ class ChatGPTOAuthClient:
         input_items: list[dict[str, Any]] | None = None,
         text_format: dict[str, Any] | None = None,
         reasoning_effort: str | None = None,
+        web_search: WebSearchOptions | None = None,
     ) -> ChatGPTTextResponse:
         """Create a conversation response with Home Assistant tools enabled."""
         tools = [
@@ -755,6 +1066,8 @@ class ChatGPTOAuthClient:
             input_items = [dict(item) for item in input_items]
 
         all_events: list[dict[str, Any]] = []
+        all_citations = []
+        all_searches = []
 
         for _iteration in range(MAX_TOOL_ITERATIONS):
             turn = await self._async_create_turn(
@@ -766,12 +1079,32 @@ class ChatGPTOAuthClient:
                 parallel_tool_calls=False,
                 text_format=text_format,
                 reasoning_effort=reasoning_effort,
+                web_search=web_search,
             )
             all_events.extend(turn.raw_events)
+            all_citations.extend(turn.citations)
+            all_searches.extend(turn.searches)
             if not turn.function_calls:
                 if not turn.text:
                     raise ResponseParseError("ChatGPT returned an empty response")
-                return ChatGPTTextResponse(text=turn.text, raw_events=all_events)
+                citations = dedupe_citations(all_citations)
+                searches = dedupe_searches(all_searches)
+                _validate_required_web_search(
+                    web_search,
+                    citations=citations,
+                    searches=searches,
+                )
+                return ChatGPTTextResponse(
+                    text=render_text_with_web_citations(
+                        turn.text,
+                        citations,
+                        searches,
+                    ),
+                    raw_text=turn.text,
+                    raw_events=all_events,
+                    citations=citations,
+                    searches=searches,
+                )
             await self._async_append_tool_results(
                 input_items,
                 turn.function_calls,

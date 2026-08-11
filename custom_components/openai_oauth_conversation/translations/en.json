@@ -9,12 +9,20 @@
           "name": "Name",
           "model": "Model",
           "enable_home_assistant_control": "Enable Home Assistant control",
+          "web_search_mode": "Web search",
+          "web_search_context_size": "Search context size",
+          "web_search_live_access": "Live internet access",
+          "web_search_use_home_assistant_location": "Use Home Assistant location",
           "prompt": "System prompt"
         },
         "data_description": {
           "name": "A friendly name for this account in Home Assistant.",
           "model": "The model used by Assist and AI Task actions.",
           "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
+          "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
+          "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
+          "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
           "prompt": "Default instructions used by the Assist agent and integration actions."
         }
       },
@@ -37,17 +45,25 @@
       },
       "reconfigure": {
         "title": "ChatGPT OAuth settings",
-        "description": "Update the name, model, Home Assistant control access, or default system prompt. Your OAuth credentials are not changed.",
+        "description": "Update the name, model, Home Assistant control access, web-search behavior, or default system prompt. Your OAuth credentials are not changed.",
         "data": {
           "name": "Name",
           "model": "Model",
           "enable_home_assistant_control": "Enable Home Assistant control",
+          "web_search_mode": "Web search",
+          "web_search_context_size": "Search context size",
+          "web_search_live_access": "Live internet access",
+          "web_search_use_home_assistant_location": "Use Home Assistant location",
           "prompt": "System prompt"
         },
         "data_description": {
           "name": "A friendly name for this account in Home Assistant.",
           "model": "The model used by Assist and AI Task actions.",
           "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
+          "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
+          "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
+          "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
           "prompt": "Default instructions used by the Assist agent and integration actions."
         }
       },
@@ -68,6 +84,7 @@
       "state_mismatch": "The callback belongs to a different setup attempt. Restart setup and use the newly generated sign-in link.",
       "unknown": "An unexpected error occurred while setting up ChatGPT OAuth.",
       "unsupported_model": "Select one of the models shown in the list.",
+      "unsupported_model_or_web_search": "Select a supported model and valid web-search settings.",
       "unsupported_reasoning": "Select a thinking level available for the chosen model."
     },
     "abort": {

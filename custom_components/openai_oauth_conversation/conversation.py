@@ -104,6 +104,7 @@ class ChatGPTOAuthConversationEntity(
                     instructions=instructions,
                     input_items=input_items,
                     llm_api=chat_log.llm_api,
+                    web_search=client.web_search_options,
                 )
             else:
                 result = await client.async_create_response(
@@ -111,6 +112,7 @@ class ChatGPTOAuthConversationEntity(
                     reasoning_effort=client.reasoning_effort,
                     instructions=instructions,
                     input_items=input_items,
+                    web_search=client.web_search_options,
                 )
         except ChatGPTOAuthError as err:
             raise HomeAssistantError(str(err)) from err

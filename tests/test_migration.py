@@ -11,6 +11,10 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
     LEGACY_OUTPUT_LIMIT_KEY,
 )
@@ -34,11 +38,40 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 6
+    assert entry.version == 7
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
     assert entry.data[CONF_MODEL] == "gpt-5.6-sol"
     assert entry.data[CONF_REASONING_EFFORT] == "low"
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
+    assert entry.data[CONF_WEB_SEARCH_MODE] == "disabled"
+    assert entry.data[CONF_WEB_SEARCH_CONTEXT_SIZE] == "medium"
+    assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
+    assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False
     assert LEGACY_OUTPUT_LIMIT_KEY not in entry.data
+
+
+async def test_migration_resets_invalid_web_search_settings(hass) -> None:
+    """Invalid manually edited search settings cannot block an upgrade."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=7,
+        title="Invalid settings",
+        data={
+            CONF_ACCESS_TOKEN: "access",
+            CONF_REFRESH_TOKEN: "refresh",
+            CONF_MODEL: "gpt-5.6-terra",
+            CONF_WEB_SEARCH_MODE: "sometimes",
+            CONF_WEB_SEARCH_CONTEXT_SIZE: "enormous",
+            CONF_WEB_SEARCH_LIVE_ACCESS: "false",
+            CONF_WEB_SEARCH_USE_HASS_LOCATION: 1,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+    assert entry.data[CONF_WEB_SEARCH_MODE] == "disabled"
+    assert entry.data[CONF_WEB_SEARCH_CONTEXT_SIZE] == "medium"
+    assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
+    assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False

@@ -12,7 +12,7 @@
 
 # ChatGPT OAuth for Home Assistant
 
-Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, image and PDF analysis, image generation, and image editing—without configuring an OpenAI API key.
+Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, OpenAI web search, image and PDF analysis, image generation, and image editing—without configuring an OpenAI API key.
 
 > [!IMPORTANT]
 > This is an **unofficial community integration**. It is not affiliated with, endorsed by, or supported by OpenAI or the Home Assistant project. It uses a hosted ChatGPT/Codex OAuth backend that may change without notice. Do not use it for safety-critical or life-critical automation.
@@ -20,9 +20,13 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, ima
 ## Features
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
+- Native OpenAI `web_search` support with sourced answers and clickable citations.
+- Configurable disabled, automatic, or required web-search behavior.
+- Low, medium, or high search context; live or cache/index-only access; optional approximate Home Assistant location.
+- Dedicated web-search action with optional domain allowlisting and machine-readable source metadata.
 - Native `ai_task.generate_data` support for text and schema-validated structured output.
 - Native `ai_task.generate_image` support for new images, edits, and reference-image workflows.
-- Up to **10 image attachments** in a single image-generation request.
+- Up to **10 image attachments** in one image-generation request.
 - Image and PDF attachments for data-generation tasks.
 - Camera, image entity, local-file, and remote-URL analysis actions.
 - Model-specific thinking-level selection.
@@ -37,7 +41,7 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, ima
 - A ChatGPT account that can access at least one supported model.
 - Outbound HTTPS access from Home Assistant to the ChatGPT and OpenAI authentication services.
 
-No OpenAI API key is required. Availability, limits, and model access are determined by the signed-in ChatGPT account.
+No OpenAI API key is required. Availability, usage limits, model access, and web-search access are determined by the signed-in ChatGPT account and workspace.
 
 ## Installation
 
@@ -85,13 +89,14 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 2. Select **Add integration**.
 3. Search for **ChatGPT OAuth**.
 4. Enter a friendly name and select a model.
-5. Choose whether the Assist agent may inspect and control entities exposed to Assist. This is enabled by default for backward compatibility and can be disabled for conversation-only use.
-6. Optionally customize the system prompt.
-7. Choose a thinking level supported by that model.
-8. Open the displayed ChatGPT sign-in link.
-9. Complete sign-in in the browser.
-10. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
-11. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
+5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
+6. Choose the default OpenAI web-search mode, search context size, live-access behavior, and whether approximate Home Assistant location may be used.
+7. Optionally customize the system prompt.
+8. Choose a thinking level supported by the selected model.
+9. Open the displayed ChatGPT sign-in link.
+10. Complete sign-in in the browser.
+11. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
+12. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
 
 The callback URL contains a short-lived authorization code. Treat it as sensitive and do not post it in issues or logs.
 
@@ -106,7 +111,94 @@ The callback URL contains a short-lived authorization code. Treat it as sensitiv
 
 The setup and reconfiguration screens only show levels compatible with the selected model. `Ultra` uses the model's `Max` reasoning level; Codex's separate subagent-delegation runtime is not available inside Home Assistant.
 
-Model availability is controlled by the hosted service and the signed-in account. A model can be temporarily unavailable even when it appears in the integration.
+Model and web-search availability are controlled by the hosted service and the signed-in account. A listed capability can be temporarily unavailable or restricted by a workspace policy.
+
+## OpenAI web search
+
+The integration uses OpenAI's native Responses API `web_search` tool. Search results can be used by Assist, plain-text AI Tasks, `generate_content`, and `analyze_image`. A separate `web_search` action forces a sourced search and returns citation metadata.
+
+Configure the default behavior under **Settings → Devices & services → ChatGPT OAuth → Reconfigure**:
+
+| Setting | Behavior |
+|---|---|
+| **Disabled** | The web-search tool is not sent to the model. |
+| **Automatic** | The model may search when the request benefits from current or external information. |
+| **Required** | A search is required; the integration rejects the response if no search evidence is returned. |
+| **Context: Low** | Smaller search-result context for quick lookups. |
+| **Context: Medium** | Balanced default. |
+| **Context: High** | More result context for detailed research. |
+| **Live access enabled** | Search may fetch current external pages. |
+| **Live access disabled** | Search is limited to OpenAI's cached or indexed content when supported. |
+| **Use Home Assistant location** | Sends only Home Assistant's country and time zone as an approximate hint. Coordinates and the configured home name are not sent. |
+
+When search is used, plain-text responses preserve OpenAI's cited answer and add clickable Markdown citation markers plus a `Sources` section. The dedicated integration actions also return structured citation, source, and search-action lists.
+
+### Assist with web search
+
+Set the integration's web-search mode to **Automatic** or **Required**, then use the ChatGPT OAuth conversation agent in an Assist pipeline. The same request may expose Home Assistant tools when **Enable Home Assistant control** is on.
+
+Web pages are untrusted input. Avoid exposing sensitive or safety-critical Home Assistant actions to Assist, and review the model's answer before relying on searched instructions.
+
+### `ai_task.generate_data` with web search
+
+The AI Task entity uses the integration's configured search settings:
+
+```yaml
+- action: ai_task.generate_data
+  data:
+    task_name: current_release_summary
+    entity_id: ai_task.chatgpt_oauth_ai_task
+    instructions: >-
+      Find the latest stable Home Assistant release and summarize its three
+      most important user-facing changes. Include sources.
+  response_variable: release_summary
+
+- action: persistent_notification.create
+  data:
+    title: Home Assistant release
+    message: "{{ release_summary.data }}"
+```
+
+For free-text tasks, citations are included in the returned text. Structured-output tasks return only the fields declared by the Home Assistant `structure`; use the dedicated web-search action when an automation needs separate citation metadata.
+
+### Dedicated web-search action
+
+`openai_oauth_conversation.web_search` always requires a search. It supports per-call model and thinking-level overrides, context size, live/cache behavior, approximate location, and an optional allowlist of up to 100 domains.
+
+```yaml
+- action: openai_oauth_conversation.web_search
+  data:
+    config_entry: 0123456789abcdef0123456789abcdef
+    query: >-
+      What is the latest stable Home Assistant release, and what are its most
+      important breaking changes?
+    model: gpt-5.6-terra
+    reasoning_effort: high
+    web_search_context_size: high
+    web_search_live_access: true
+    allowed_domains:
+      - home-assistant.io
+      - github.com
+  response_variable: research
+```
+
+Common response values:
+
+```jinja2
+{{ research.text }}
+{{ research.raw_text }}
+{{ research.citations }}
+{{ research.sources }}
+{{ research.searches }}
+{{ research.model }}
+{{ research.reasoning_effort }}
+{{ research.search_context_size }}
+{{ research.live_access }}
+```
+
+Each item in `research.citations` contains `url`, `title`, `start_index`, and `end_index`. Each item in `research.sources` contains `url` and `title`. `research.searches` records search, page-open, or find-in-page actions reported by the hosted tool.
+
+Allowed domains must be hostnames such as `home-assistant.io` or `developers.openai.com`; do not include a URL path, query, or fragment.
 
 ## Home Assistant Assist
 
@@ -116,7 +208,7 @@ After setup, choose the new conversation agent in an Assist pipeline:
 2. Create or edit a pipeline.
 3. Select the ChatGPT OAuth conversation agent under **Conversation agent**.
 
-When **Enable Home Assistant control** is turned on in the integration settings, the agent receives Home Assistant's Assist tool API and may inspect or control entities exposed to Assist. Turn the option off under **Settings → Devices & services → ChatGPT OAuth → Reconfigure** for conversation-only behavior.
+When **Enable Home Assistant control** is turned on, the agent receives Home Assistant's Assist tool API and may inspect or control entities exposed to Assist. Turn the option off under **Settings → Devices & services → ChatGPT OAuth → Reconfigure** for conversation-only behavior.
 
 Only entities explicitly exposed to Assist are made available through Home Assistant's LLM tools. The model can still make mistakes; use normal Home Assistant permissions and avoid exposing safety-critical actions.
 
@@ -252,9 +344,11 @@ Attach between one and ten images to edit an image or guide a new composition:
 
 Image generation accepts PNG, JPEG, WebP, and GIF attachments, with a maximum of 10 images and a combined unencoded size limit of 50 MB. File signatures must match the supplied MIME types.
 
-## Integration actions
+Web search is intentionally not added to `ai_task.generate_image`; image prompts and reference images continue to use only the image-generation path.
 
-The integration also provides two actions under the backward-compatible domain `openai_oauth_conversation`.
+## Additional integration actions
+
+The actions below use the backward-compatible domain `openai_oauth_conversation`.
 
 ### `openai_oauth_conversation.generate_content`
 
@@ -265,10 +359,11 @@ The integration also provides two actions under the backward-compatible domain `
     prompt: Summarize today's household reminders in one paragraph.
     model: gpt-5.6-terra
     reasoning_effort: medium
+    web_search_mode: configured
   response_variable: generated
 ```
 
-The generated text is available as `{{ generated.text }}`.
+Search may be overridden per call with `configured`, `disabled`, `auto`, or `required`. The response includes `text`, `raw_text`, `citations`, `sources`, and `searches`.
 
 ### `openai_oauth_conversation.analyze_image`
 
@@ -282,28 +377,34 @@ This action accepts up to ten images from any mixture of:
 - action: openai_oauth_conversation.analyze_image
   data:
     config_entry: 0123456789abcdef0123456789abcdef
-    prompt: Describe the visible weather conditions in one sentence.
+    prompt: >-
+      Identify the visible plant and use web search to summarize its current
+      care recommendations with sources.
     entity_id:
-      - camera.backyard
+      - camera.plant_camera
+    web_search_mode: required
+    web_search_context_size: medium
   response_variable: analysis
 ```
 
-The generated text is available as `{{ analysis.text }}` and `{{ analysis.response_text }}`.
+The response includes `text`, `response_text`, `raw_text`, `citations`, `sources`, and `searches`.
 
 ## Reconfiguration and reauthentication
 
 Open **Settings → Devices & services → ChatGPT OAuth** and use:
 
-- **Reconfigure** to change the entry name, model, Home Assistant control access, system prompt, or thinking level.
+- **Reconfigure** to change the entry name, model, Home Assistant control access, system prompt, thinking level, or web-search defaults.
 - **Reauthenticate** when Home Assistant reports that the OAuth session has expired or been revoked.
-- **Download diagnostics** when filing a bug report. Diagnostics exclude tokens, account identifiers, prompts, attachments, conversation text, and generated output.
+- **Download diagnostics** when filing a bug report. Diagnostics exclude tokens, account identifiers, prompts, attachments, conversation text, search queries, source contents, and generated output.
 
 ## Privacy and security
 
-Prompts, enabled Home Assistant tool context, images, and PDFs used in a request are transmitted to the hosted ChatGPT service. Review the service's terms and privacy controls before sending sensitive content.
+Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queries used in a request are transmitted to the hosted ChatGPT service. When live web access is enabled, the search service may retrieve external pages. Review the service's terms and privacy controls before sending sensitive content.
 
+- Web content is untrusted and may contain prompt-injection attempts. Treat searched instructions as advisory and verify important results.
+- The optional Home Assistant location hint includes only country and time zone; it does not include latitude, longitude, home name, or street address.
 - OAuth access tokens and refresh tokens are stored in Home Assistant's config-entry storage.
-- Do not expose `.storage`, diagnostics from unknown integrations, callback URLs, or debug logs containing credentials.
+- Do not expose `.storage`, callback URLs, debug logs containing credentials, or unredacted request captures.
 - Only expose the Home Assistant entities that the Assist agent genuinely needs.
 - Local file access is restricted to Home Assistant's allowed paths.
 - Remote image downloads are limited to HTTP/HTTPS, bounded redirects, an image content type, and a 20 MB response limit.
@@ -312,11 +413,13 @@ Prompts, enabled Home Assistant tool context, images, and PDFs used in a request
 ## Limitations
 
 - This integration depends on an unofficial hosted backend rather than a documented public OpenAI API contract.
-- Backend request formats, model availability, usage limits, and OAuth behavior can change independently of this repository.
-- A ChatGPT subscription does not guarantee unlimited usage or access to every listed model.
+- Backend request formats, model availability, search availability, usage limits, and OAuth behavior can change independently of this repository.
+- A ChatGPT subscription does not guarantee unlimited usage or access to every listed model or search mode.
+- Search citations and source coverage are produced by the hosted model and search service; they do not guarantee that every claim is correct or exhaustively sourced.
+- Cache/index-only behavior depends on backend support. Compatibility fallback to the legacy preview tool occurs only when live access is allowed and no domain allowlist is present; the integration never silently removes an explicit cache-only or domain-filter restriction.
 - Image generation may take several minutes and can time out under heavy service load.
 - `Ultra` does not provide the Codex CLI's client-side subagent orchestration.
-- The integration does not provide web search, code interpreter, speech-to-text, or text-to-speech services.
+- The integration does not provide code interpreter, speech-to-text, or text-to-speech services.
 
 ## Troubleshooting
 
@@ -342,6 +445,20 @@ Start **Reauthenticate** from the integration entry. Use the newly generated sig
 
 Use **Reconfigure** and select a combination shown by the integration. The hosted service can also restrict a model for a particular account or temporarily remove access.
 
+### Web search is not used
+
+- Confirm the integration's mode is **Automatic** or **Required**.
+- Use **Required** or the dedicated `openai_oauth_conversation.web_search` action when a search must occur.
+- Confirm the signed-in account or workspace permits search.
+- Remove an overly restrictive domain allowlist.
+- Try live access when the request depends on very recent information.
+
+Required mode raises an error instead of returning an answer when the backend provides no search call or citation evidence.
+
+### Search controls are rejected
+
+The integration automatically retries without individually rejected optional controls and can fall back from `web_search` to `web_search_preview` only when doing so preserves the requested privacy constraints. It refuses the fallback rather than silently removing cache-only access or a domain allowlist.
+
 ### Image attachments are rejected
 
 Confirm that:
@@ -353,11 +470,14 @@ Confirm that:
 
 ### Reporting a problem
 
-Download diagnostics from the integration entry and attach them to a GitHub issue. Never attach `.storage` files, callback URLs, access tokens, refresh tokens, or complete debug logs without reviewing and redacting them first.
+Download diagnostics from the integration entry and attach them to a GitHub issue. Never attach `.storage` files, callback URLs, access tokens, refresh tokens, complete request bodies, or unreviewed debug logs.
 
-## Upgrading from 0.5.x
+## Upgrading
 
-See [MIGRATION.md](MIGRATION.md). Version 1.0.0 keeps the internal domain, config-entry data, service namespace, conversation unique ID, and AI Task unique ID so existing installations and automations continue to work. Public names and documentation change to **ChatGPT OAuth**.
+- Upgrading from 1.0.0 to 1.1.0 preserves existing entries and leaves web search disabled until explicitly enabled.
+- Upgrading from 0.5.x preserves the stable domain, config-entry data, service namespace, conversation unique ID, and AI Task unique ID.
+
+See [MIGRATION.md](MIGRATION.md) for details.
 
 ## Removal
 

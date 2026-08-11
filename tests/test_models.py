@@ -43,6 +43,7 @@ def test_model_catalog(model: str, levels: tuple[str, ...], default: str) -> Non
     assert reasoning_efforts_for_model(model) == levels
     assert default_reasoning_effort(model) == default
     assert normalize_reasoning_effort(model, None) == default
+    assert profile.supports_web_search is True
 
 
 def test_all_catalog_levels_validate() -> None:

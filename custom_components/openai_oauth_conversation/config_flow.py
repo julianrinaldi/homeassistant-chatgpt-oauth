@@ -26,10 +26,18 @@ from .const import (
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PROMPT,
+    DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+    DEFAULT_WEB_SEARCH_MODE,
+    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
     LEGACY_OUTPUT_LIMIT_KEY,
 )
@@ -49,6 +57,16 @@ from .models import (
     normalize_reasoning_effort,
     reasoning_efforts_for_model,
     validate_reasoning_effort,
+)
+from .web_search import (
+    WEB_SEARCH_AUTO,
+    WEB_SEARCH_CONTEXT_HIGH,
+    WEB_SEARCH_CONTEXT_LOW,
+    WEB_SEARCH_CONTEXT_MEDIUM,
+    WEB_SEARCH_DISABLED,
+    WEB_SEARCH_REQUIRED,
+    normalize_web_search_context_size,
+    normalize_web_search_mode,
 )
 
 
@@ -78,6 +96,26 @@ def _reasoning_schema(model: str) -> vol.In:
     )
 
 
+def _web_search_mode_schema() -> vol.In:
+    return vol.In(
+        {
+            WEB_SEARCH_DISABLED: "Disabled",
+            WEB_SEARCH_AUTO: "Automatic",
+            WEB_SEARCH_REQUIRED: "Required",
+        }
+    )
+
+
+def _web_search_context_schema() -> vol.In:
+    return vol.In(
+        {
+            WEB_SEARCH_CONTEXT_LOW: "Low",
+            WEB_SEARCH_CONTEXT_MEDIUM: "Medium",
+            WEB_SEARCH_CONTEXT_HIGH: "High",
+        }
+    )
+
+
 def _prompt_selector() -> selector.TextSelector:
     return selector.TextSelector({"multiline": True})
 
@@ -94,10 +132,40 @@ def _flow_error(error: ChatGPTOAuthError) -> str:
     return "unknown"
 
 
+def _web_search_settings(
+    user_input: dict[str, Any],
+    *,
+    default_mode: str,
+    default_context_size: str,
+    default_live_access: bool,
+    default_use_location: bool,
+) -> dict[str, Any]:
+    """Normalize web-search settings from a setup or reconfigure form."""
+    return {
+        CONF_WEB_SEARCH_MODE: normalize_web_search_mode(
+            user_input.get(CONF_WEB_SEARCH_MODE),
+            default=default_mode,
+        ),
+        CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
+            user_input.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            default=default_context_size,
+        ),
+        CONF_WEB_SEARCH_LIVE_ACCESS: bool(
+            user_input.get(CONF_WEB_SEARCH_LIVE_ACCESS, default_live_access)
+        ),
+        CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
+            user_input.get(
+                CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                default_use_location,
+            )
+        ),
+    }
+
+
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure ChatGPT OAuth."""
 
-    VERSION = 6
+    VERSION = 7
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]
@@ -109,13 +177,20 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Collect the entry name, model, and system prompt."""
+        """Collect the account name, model, tools, and system prompt."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 model = get_model_profile(user_input.get(CONF_MODEL)).slug
+                web_search = _web_search_settings(
+                    user_input,
+                    default_mode=DEFAULT_WEB_SEARCH_MODE,
+                    default_context_size=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+                    default_live_access=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                    default_use_location=DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                )
             except ValueError:
-                errors["base"] = "unsupported_model"
+                errors["base"] = "unsupported_model_or_web_search"
             else:
                 self._oauth_input = {
                     "name": str(user_input.get("name") or DEFAULT_NAME).strip()
@@ -130,6 +205,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_PROMPT: str(
                         user_input.get(CONF_PROMPT) or DEFAULT_PROMPT
                     ).strip(),
+                    **web_search,
                 }
                 return await self.async_step_reasoning()
 
@@ -142,6 +218,22 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_ENABLE_HASS_CONTROL,
                     default=DEFAULT_ENABLE_HASS_CONTROL,
+                ): bool,
+                vol.Required(
+                    CONF_WEB_SEARCH_MODE,
+                    default=DEFAULT_WEB_SEARCH_MODE,
+                ): _web_search_mode_schema(),
+                vol.Required(
+                    CONF_WEB_SEARCH_CONTEXT_SIZE,
+                    default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+                ): _web_search_context_schema(),
+                vol.Optional(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    default=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                ): bool,
+                vol.Optional(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    default=DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
                 ): bool,
                 vol.Optional(CONF_PROMPT, default=DEFAULT_PROMPT): _prompt_selector(),
             }
@@ -228,9 +320,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="auth_manual",
-            data_schema=vol.Schema(
-                {vol.Required("callback_url"): str}
-            ),
+            data_schema=vol.Schema({vol.Required("callback_url"): str}),
             errors=errors,
             description_placeholders={"authorize_url": self._authorize_url},
         )
@@ -256,6 +346,26 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_MODEL: model,
             CONF_REASONING_EFFORT: reasoning_effort,
             CONF_PROMPT: self._oauth_input.get(CONF_PROMPT, DEFAULT_PROMPT),
+            CONF_WEB_SEARCH_MODE: self._oauth_input.get(
+                CONF_WEB_SEARCH_MODE,
+                DEFAULT_WEB_SEARCH_MODE,
+            ),
+            CONF_WEB_SEARCH_CONTEXT_SIZE: self._oauth_input.get(
+                CONF_WEB_SEARCH_CONTEXT_SIZE,
+                DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+            ),
+            CONF_WEB_SEARCH_LIVE_ACCESS: bool(
+                self._oauth_input.get(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                )
+            ),
+            CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
+                self._oauth_input.get(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                )
+            ),
         }
         data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
@@ -279,8 +389,6 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if self.context.get("source") == config_entries.SOURCE_REAUTH:
             entry = self._get_reauth_entry()
-            # Preserve the user's title and non-auth settings gathered from the
-            # existing entry while replacing credentials atomically.
             new_data = dict(entry.data)
             new_data.update(data)
             return self.async_update_reload_and_abort(
@@ -303,9 +411,17 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Update the entry name, model, and system prompt."""
+        """Update the entry name, model, tools, and system prompt."""
         entry = self._get_reconfigure_entry()
         current_model = normalize_model(entry.data.get(CONF_MODEL, DEFAULT_MODEL))
+        current_web_search_mode = normalize_web_search_mode(
+            entry.data.get(CONF_WEB_SEARCH_MODE),
+            default=DEFAULT_WEB_SEARCH_MODE,
+        )
+        current_web_search_context = normalize_web_search_context_size(
+            entry.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+        )
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -313,8 +429,25 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 model = get_model_profile(
                     user_input.get(CONF_MODEL, current_model)
                 ).slug
+                web_search = _web_search_settings(
+                    user_input,
+                    default_mode=current_web_search_mode,
+                    default_context_size=current_web_search_context,
+                    default_live_access=bool(
+                        entry.data.get(
+                            CONF_WEB_SEARCH_LIVE_ACCESS,
+                            DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                        )
+                    ),
+                    default_use_location=bool(
+                        entry.data.get(
+                            CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                            DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                        )
+                    ),
+                )
             except ValueError:
-                errors["base"] = "unsupported_model"
+                errors["base"] = "unsupported_model_or_web_search"
             else:
                 self._reconfigure_input = {
                     "name": str(user_input.get("name") or entry.title).strip()
@@ -335,6 +468,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                             entry.data.get(CONF_PROMPT, DEFAULT_PROMPT),
                         )
                     ).strip(),
+                    **web_search,
                 }
                 return await self.async_step_reconfigure_reasoning()
 
@@ -349,6 +483,28 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     default=entry.data.get(
                         CONF_ENABLE_HASS_CONTROL,
                         DEFAULT_ENABLE_HASS_CONTROL,
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_WEB_SEARCH_MODE,
+                    default=current_web_search_mode,
+                ): _web_search_mode_schema(),
+                vol.Required(
+                    CONF_WEB_SEARCH_CONTEXT_SIZE,
+                    default=current_web_search_context,
+                ): _web_search_context_schema(),
+                vol.Optional(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    default=entry.data.get(
+                        CONF_WEB_SEARCH_LIVE_ACCESS,
+                        DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    default=entry.data.get(
+                        CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                        DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
                     ),
                 ): bool,
                 vol.Optional(
@@ -394,6 +550,18 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_MODEL: model,
                         CONF_PROMPT: self._reconfigure_input[CONF_PROMPT],
                         CONF_REASONING_EFFORT: effort,
+                        CONF_WEB_SEARCH_MODE: self._reconfigure_input[
+                            CONF_WEB_SEARCH_MODE
+                        ],
+                        CONF_WEB_SEARCH_CONTEXT_SIZE: self._reconfigure_input[
+                            CONF_WEB_SEARCH_CONTEXT_SIZE
+                        ],
+                        CONF_WEB_SEARCH_LIVE_ACCESS: self._reconfigure_input[
+                            CONF_WEB_SEARCH_LIVE_ACCESS
+                        ],
+                        CONF_WEB_SEARCH_USE_HASS_LOCATION: self._reconfigure_input[
+                            CONF_WEB_SEARCH_USE_HASS_LOCATION
+                        ],
                     }
                 )
                 new_data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
@@ -424,7 +592,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         entry_data: dict[str, Any],
     ) -> ConfigFlowResult:
-        """Reauthenticate while retaining the entry's model and prompt."""
+        """Reauthenticate while retaining non-authentication settings."""
         entry = self._get_reauth_entry()
         model = normalize_model(entry_data.get(CONF_MODEL, DEFAULT_MODEL))
         self._oauth_input = {
@@ -441,6 +609,26 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 entry_data.get(CONF_REASONING_EFFORT),
             ),
             CONF_PROMPT: entry_data.get(CONF_PROMPT, DEFAULT_PROMPT),
+            CONF_WEB_SEARCH_MODE: normalize_web_search_mode(
+                entry_data.get(CONF_WEB_SEARCH_MODE),
+                default=DEFAULT_WEB_SEARCH_MODE,
+            ),
+            CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
+                entry_data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+                default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+            ),
+            CONF_WEB_SEARCH_LIVE_ACCESS: bool(
+                entry_data.get(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                )
+            ),
+            CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
+                entry_data.get(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                )
+            ),
         }
         return await self.async_step_auth_manual()
 
