@@ -28,9 +28,17 @@ from .const import (
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
+    DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+    DEFAULT_WEB_SEARCH_MODE,
+    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
     INTEGRATION_NAME,
     INTEGRATION_VERSION,
@@ -40,6 +48,7 @@ from .const import (
     MAX_IMAGE_ATTACHMENTS,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_CONTENT,
+    SERVICE_WEB_SEARCH,
 )
 from .content import (
     image_part_from_entity,
@@ -63,9 +72,24 @@ from .models import (
     normalize_model,
     normalize_reasoning_effort,
 )
+from .responses import ChatGPTTextResponse
+from .web_search import (
+    WEB_SEARCH_AUTO,
+    WEB_SEARCH_DISABLED,
+    WEB_SEARCH_REQUIRED,
+    WebSearchOptions,
+    normalize_web_search_context_size,
+    normalize_web_search_mode,
+)
 
 PLATFORMS: tuple[Platform, ...] = (Platform.CONVERSATION, Platform.AI_TASK)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+PER_CALL_WEB_SEARCH_MODES = (
+    "configured",
+    WEB_SEARCH_DISABLED,
+    WEB_SEARCH_AUTO,
+    WEB_SEARCH_REQUIRED,
+)
 
 
 def _model_validator(value: object) -> str:
@@ -84,6 +108,28 @@ def _reasoning_validator(value: object) -> str:
             "Supported thinking levels are: " + ", ".join(ALL_REASONING_EFFORTS)
         )
     return effort
+
+
+def _web_search_mode_validator(value: object) -> str:
+    if not isinstance(value, str):
+        raise vol.Invalid("Web-search mode must be a string")
+    mode = value.strip().lower()
+    if mode not in PER_CALL_WEB_SEARCH_MODES:
+        raise vol.Invalid(
+            "Supported web-search modes are: "
+            + ", ".join(PER_CALL_WEB_SEARCH_MODES)
+        )
+    return mode
+
+
+def _web_search_context_validator(value: object) -> str:
+    try:
+        return normalize_web_search_context_size(
+            value,
+            default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+        )
+    except ValueError as err:
+        raise vol.Invalid(str(err)) from err
 
 
 def _get_entry(hass: HomeAssistant, entry_id: str) -> ConfigEntry:
@@ -117,6 +163,42 @@ def _resolve_call_settings(
     return model, reasoning_effort
 
 
+def _resolve_call_web_search(
+    client: ChatGPTOAuthClient,
+    call: ServiceCall,
+    *,
+    force_required: bool = False,
+) -> WebSearchOptions:
+    mode: object | None = call.data.get(CONF_WEB_SEARCH_MODE)
+    if mode in (None, "configured"):
+        mode = None
+    if force_required:
+        mode = WEB_SEARCH_REQUIRED
+    try:
+        return client.resolve_web_search_options(
+            mode=mode,
+            context_size=call.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            live_access=call.data.get(CONF_WEB_SEARCH_LIVE_ACCESS),
+            use_home_assistant_location=call.data.get(
+                CONF_WEB_SEARCH_USE_HASS_LOCATION
+            ),
+            allowed_domains=call.data.get("allowed_domains"),
+        )
+    except ValueError as err:
+        raise ServiceValidationError(str(err)) from err
+
+
+def _text_response_data(result: ChatGPTTextResponse) -> ServiceResponse:
+    """Return stable, serializable text and web-source metadata."""
+    return {
+        "text": result.text,
+        "raw_text": result.raw_text or result.text,
+        "citations": [citation.as_dict() for citation in result.citations],
+        "sources": [source.as_dict() for source in result.sources],
+        "searches": [search.as_dict() for search in result.searches],
+    }
+
+
 def _raise_home_assistant_error(error: ChatGPTOAuthError) -> NoReturn:
     """Translate stable client exceptions to useful Home Assistant errors."""
     if isinstance(error, (RequestValidationError, StructuredOutputError)):
@@ -136,6 +218,18 @@ def _raise_home_assistant_error(error: ChatGPTOAuthError) -> NoReturn:
     raise HomeAssistantError(str(error)) from error
 
 
+def _shared_text_fields() -> dict[vol.Marker, Any]:
+    """Return common service fields for model, reasoning, and web search."""
+    return {
+        vol.Optional(CONF_MODEL): _model_validator,
+        vol.Optional(CONF_REASONING_EFFORT): _reasoning_validator,
+        vol.Optional(CONF_WEB_SEARCH_MODE): _web_search_mode_validator,
+        vol.Optional(CONF_WEB_SEARCH_CONTEXT_SIZE): _web_search_context_validator,
+        vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
+        vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
+    }
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register integration actions."""
 
@@ -143,6 +237,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         entry = _get_entry(hass, call.data["config_entry"])
         client = _get_client(entry)
         model, reasoning_effort = _resolve_call_settings(client, call)
+        web_search = _resolve_call_web_search(client, call)
         instructions = entry.data.get(CONF_PROMPT, DEFAULT_PROMPT)
         try:
             result = await client.async_create_response(
@@ -150,15 +245,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 reasoning_effort=reasoning_effort,
                 instructions=instructions,
                 content=[text_part(call.data[CONF_PROMPT])],
+                web_search=web_search,
             )
         except ChatGPTOAuthError as err:
             _raise_home_assistant_error(err)
-        return {"text": result.text}
+        return _text_response_data(result)
 
     async def analyze_image(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass, call.data["config_entry"])
         client = _get_client(entry)
         model, reasoning_effort = _resolve_call_settings(client, call)
+        web_search = _resolve_call_web_search(client, call)
 
         image_files = call.data.get("image_file", []) or []
         image_urls = call.data.get("image_url", []) or []
@@ -199,10 +296,47 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 reasoning_effort=reasoning_effort,
                 instructions=instructions,
                 content=content,
+                web_search=web_search,
             )
         except ChatGPTOAuthError as err:
             _raise_home_assistant_error(err)
-        return {"response_text": result.text, "text": result.text}
+        response = _text_response_data(result)
+        response["response_text"] = result.text
+        return response
+
+    async def web_search(call: ServiceCall) -> ServiceResponse:
+        entry = _get_entry(hass, call.data["config_entry"])
+        client = _get_client(entry)
+        model, reasoning_effort = _resolve_call_settings(client, call)
+        search_options = _resolve_call_web_search(
+            client,
+            call,
+            force_required=True,
+        )
+        instructions = call.data.get("system_prompt") or entry.data.get(
+            CONF_PROMPT,
+            DEFAULT_PROMPT,
+        )
+        try:
+            result = await client.async_create_response(
+                model=model,
+                reasoning_effort=reasoning_effort,
+                instructions=instructions,
+                content=[text_part(call.data["query"])],
+                web_search=search_options,
+            )
+        except ChatGPTOAuthError as err:
+            _raise_home_assistant_error(err)
+        response = _text_response_data(result)
+        response.update(
+            {
+                "model": model,
+                "reasoning_effort": reasoning_effort,
+                "search_context_size": search_options.context_size,
+                "live_access": search_options.live_access,
+            }
+        )
+        return response
 
     hass.services.async_register(
         DOMAIN,
@@ -214,8 +348,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                     {"integration": DOMAIN}
                 ),
                 vol.Required(CONF_PROMPT): cv.string,
-                vol.Optional(CONF_MODEL): _model_validator,
-                vol.Optional(CONF_REASONING_EFFORT): _reasoning_validator,
+                **_shared_text_fields(),
             }
         ),
         supports_response=SupportsResponse.ONLY,
@@ -231,8 +364,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 ),
                 vol.Required(CONF_PROMPT): cv.string,
                 vol.Optional("system_prompt"): cv.string,
-                vol.Optional(CONF_MODEL): _model_validator,
-                vol.Optional(CONF_REASONING_EFFORT): _reasoning_validator,
+                **_shared_text_fields(),
                 vol.Optional("image_url", default=[]): vol.All(
                     cv.ensure_list,
                     [cv.string],
@@ -246,12 +378,38 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ),
         supports_response=SupportsResponse.ONLY,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_WEB_SEARCH,
+        web_search,
+        schema=vol.Schema(
+            {
+                vol.Required("config_entry"): selector.ConfigEntrySelector(
+                    {"integration": DOMAIN}
+                ),
+                vol.Required("query"): cv.string,
+                vol.Optional("system_prompt"): cv.string,
+                vol.Optional(CONF_MODEL): _model_validator,
+                vol.Optional(CONF_REASONING_EFFORT): _reasoning_validator,
+                vol.Optional(
+                    CONF_WEB_SEARCH_CONTEXT_SIZE
+                ): _web_search_context_validator,
+                vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
+                vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
+                vol.Optional("allowed_domains", default=[]): vol.All(
+                    cv.ensure_list,
+                    [cv.string],
+                ),
+            }
+        ),
+        supports_response=SupportsResponse.ONLY,
+    )
     return True
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate pre-v1 entries without changing their stable domain or IDs."""
-    if entry.version > 6:
+    """Migrate earlier entries without changing their stable domain or IDs."""
+    if entry.version > 7:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -278,10 +436,46 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     data.setdefault(CONF_PROMPT, DEFAULT_PROMPT)
     data.setdefault(CONF_ENABLE_HASS_CONTROL, DEFAULT_ENABLE_HASS_CONTROL)
+    try:
+        data[CONF_WEB_SEARCH_MODE] = normalize_web_search_mode(
+            data.get(CONF_WEB_SEARCH_MODE),
+            default=DEFAULT_WEB_SEARCH_MODE,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid web-search mode; disabling search",
+            entry.entry_id,
+        )
+        data[CONF_WEB_SEARCH_MODE] = DEFAULT_WEB_SEARCH_MODE
+    try:
+        data[CONF_WEB_SEARCH_CONTEXT_SIZE] = normalize_web_search_context_size(
+            data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid web-search context size; "
+            "resetting to %s",
+            entry.entry_id,
+            DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+        )
+        data[CONF_WEB_SEARCH_CONTEXT_SIZE] = DEFAULT_WEB_SEARCH_CONTEXT_SIZE
+    live_access = data.get(CONF_WEB_SEARCH_LIVE_ACCESS)
+    data[CONF_WEB_SEARCH_LIVE_ACCESS] = (
+        live_access
+        if isinstance(live_access, bool)
+        else DEFAULT_WEB_SEARCH_LIVE_ACCESS
+    )
+    use_location = data.get(CONF_WEB_SEARCH_USE_HASS_LOCATION)
+    data[CONF_WEB_SEARCH_USE_HASS_LOCATION] = (
+        use_location
+        if isinstance(use_location, bool)
+        else DEFAULT_WEB_SEARCH_USE_HASS_LOCATION
+    )
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 6 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=6)
+    if entry.version < 7 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=7)
     return True
 
 
@@ -299,13 +493,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.runtime_data = client
     profile = get_model_profile(client.model)
+    web_search = client.web_search_options
+    text_transport = (
+        "Responses for web-search requests; Responses Lite otherwise"
+        if profile.responses_lite and web_search.enabled
+        else ("Responses Lite" if profile.responses_lite else "Responses")
+    )
     LOGGER.info(
-        "Loaded %s v%s with %s, thinking level %s, and %s transport",
+        "Loaded %s v%s with %s, thinking level %s, %s, and web search %s",
         INTEGRATION_NAME,
         INTEGRATION_VERSION,
         profile.slug,
         client.reasoning_effort,
-        "Responses Lite" if profile.responses_lite else "Responses",
+        text_transport,
+        web_search.mode,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

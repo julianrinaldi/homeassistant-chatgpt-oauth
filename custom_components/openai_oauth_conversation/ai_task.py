@@ -76,6 +76,12 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
                 "responses_lite" if profile.responses_lite else "responses"
             ),
             "maximum_image_attachments": MAX_IMAGE_ATTACHMENTS,
+            "web_search_mode": client.web_search_options.mode,
+            "web_search_context_size": client.web_search_options.context_size,
+            "web_search_live_access": client.web_search_options.live_access,
+            "web_search_uses_home_assistant_location": (
+                client.web_search_options.use_home_assistant_location
+            ),
         }
 
     @property
@@ -113,6 +119,7 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
                 structure_name=task.name,
                 structure=task.structure,
                 llm_api=chat_log.llm_api,
+                web_search=client.web_search_options,
             )
         except ChatGPTOAuthError as err:
             _raise_task_error(err)

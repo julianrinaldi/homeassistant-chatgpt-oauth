@@ -17,13 +17,25 @@ from .const import (
     CONF_MODEL,
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_MODEL,
+    DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+    DEFAULT_WEB_SEARCH_MODE,
+    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
     INTEGRATION_VERSION,
     MAX_IMAGE_ATTACHMENTS,
 )
 from .models import get_model_profile, normalize_model, normalize_reasoning_effort
+from .web_search import (
+    normalize_web_search_context_size,
+    normalize_web_search_mode,
+)
 
 
 def _iso_timestamp(value: object) -> str | None:
@@ -54,6 +66,14 @@ async def async_get_config_entry_diagnostics(
         entry.data.get(CONF_REASONING_EFFORT),
     )
     runtime_data = getattr(entry, "runtime_data", None)
+    web_search_mode = normalize_web_search_mode(
+        entry.data.get(CONF_WEB_SEARCH_MODE),
+        default=DEFAULT_WEB_SEARCH_MODE,
+    )
+    web_search_context_size = normalize_web_search_context_size(
+        entry.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+        default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    )
     return {
         "integration": {
             "domain": DOMAIN,
@@ -87,13 +107,32 @@ async def async_get_config_entry_diagnostics(
             "display_name": profile.display_name,
             "thinking_level": reasoning_effort,
             "available_thinking_levels": list(profile.reasoning_efforts),
-            "transport": (
+            "default_text_transport": (
                 "responses_lite" if profile.responses_lite else "responses"
             ),
+            "web_search_transport": "responses",
             "supports_tools": profile.supports_tools,
             "supports_structured_output": profile.supports_structured_output,
             "supports_image_inputs": profile.supports_images,
             "supports_pdf_inputs": profile.supports_files,
+            "supports_web_search": profile.supports_web_search,
             "maximum_image_attachments": MAX_IMAGE_ATTACHMENTS,
+        },
+        "web_search": {
+            "mode": web_search_mode,
+            "context_size": web_search_context_size,
+            "live_access": bool(
+                entry.data.get(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                )
+            ),
+            "uses_home_assistant_location": bool(
+                entry.data.get(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                )
+            ),
+            "location_detail": "country_and_timezone_only",
         },
     }

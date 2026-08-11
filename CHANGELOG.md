@@ -1,6 +1,36 @@
 # Changelog
 
-All notable user-visible changes are documented here.
+All notable user-facing changes are documented in this file.
+
+## [1.1.0] - 2026-08-11
+
+### Added
+
+- Native OpenAI Responses API `web_search` support for Assist, `ai_task.generate_data`, `generate_content`, and `analyze_image`.
+- Configurable web-search modes: disabled, automatic, and required.
+- Low, medium, and high web-search context sizes.
+- Live-internet or cache/index-only search selection through `external_web_access`.
+- Optional country-and-time-zone-only Home Assistant location hints.
+- A dedicated `openai_oauth_conversation.web_search` action that forces search and returns sourced text, raw text, URL citations, unique sources, and reported search actions.
+- Optional domain allowlisting for the dedicated web-search action.
+- Machine-readable citation and source metadata in the existing `generate_content` and `analyze_image` action responses.
+- Web-search capability and settings in sanitized integration diagnostics and AI Task entity attributes.
+
+### Changed
+
+- GPT-5.6 web-search turns use the full Responses transport required by OpenAI's hosted web-search tool while function-only turns retain Responses Lite.
+- Plain-text searched answers preserve the complete generated text, add clickable inline citation markers, and append a source list.
+- Required mode validates that the response contains an actual search call or URL citation instead of silently accepting an unsearched answer.
+- Web-search responses request complete source lists when supported.
+- Setup and reconfiguration now include web-search defaults. Existing entries migrate with web search disabled to preserve previous behavior and privacy expectations.
+- Public documentation now covers search configuration, automation use, source metadata, privacy, prompt-injection risk, and troubleshooting.
+
+### Compatibility
+
+- The internal domain remains `openai_oauth_conversation`.
+- Existing config entries, OAuth credentials, service calls, entity-registry records, and automations are retained.
+- Image generation and its 10-reference-image limit are unchanged.
+- The client retries without individually rejected optional search controls and can fall back to `web_search_preview` only when that does not discard cache-only access or a domain allowlist.
 
 ## [1.0.0] - 2026-08-05
 
@@ -37,3 +67,4 @@ All notable user-visible changes are documented here.
 - Existing conversation and AI Task unique IDs are unchanged.
 
 [1.0.0]: https://github.com/hebs/homeassistant-chatgpt-oauth/releases/tag/v1.0.0
+[1.1.0]: https://github.com/hebs/homeassistant-chatgpt-oauth/compare/v1.0.0...v1.1.0

@@ -1,6 +1,6 @@
 generate_content:
   name: Generate content
-  description: Generate text using the selected ChatGPT OAuth account.
+  description: Generate text using the selected ChatGPT OAuth account, optionally with OpenAI web search.
   fields:
     config_entry:
       name: ChatGPT OAuth account
@@ -50,9 +50,50 @@ generate_content:
               value: max
             - label: Ultra
               value: ultra
+    web_search_mode:
+      name: Web search
+      description: Use the integration setting, disable search, let the model decide, or require OpenAI web-search evidence.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Use configured setting
+              value: configured
+            - label: Disabled
+              value: disabled
+            - label: Automatic
+              value: auto
+            - label: Required
+              value: required
+    web_search_context_size:
+      name: Search context size
+      description: How much web-result context is made available to the model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+    web_search_live_access:
+      name: Live internet access
+      description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_location:
+      name: Use Home Assistant location
+      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      required: false
+      selector:
+        boolean:
+
 analyze_image:
   name: Analyze image
-  description: Analyze up to ten images from local files, URLs, cameras, or image entities.
+  description: Analyze up to ten images from local files, URLs, cameras, or image entities, optionally using OpenAI web search.
   fields:
     config_entry:
       name: ChatGPT OAuth account
@@ -109,6 +150,46 @@ analyze_image:
               value: max
             - label: Ultra
               value: ultra
+    web_search_mode:
+      name: Web search
+      description: Use the integration setting, disable search, let the model decide, or require OpenAI web-search evidence.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Use configured setting
+              value: configured
+            - label: Disabled
+              value: disabled
+            - label: Automatic
+              value: auto
+            - label: Required
+              value: required
+    web_search_context_size:
+      name: Search context size
+      description: How much web-result context is made available to the model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+    web_search_live_access:
+      name: Live internet access
+      description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_location:
+      name: Use Home Assistant location
+      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      required: false
+      selector:
+        boolean:
     image_file:
       name: Image files
       description: One or more image files from an allowed Home Assistant path.
@@ -132,4 +213,96 @@ analyze_image:
           domain:
             - camera
             - image
+          multiple: true
+
+web_search:
+  name: Web search
+  description: Force OpenAI web search for a question and return sourced text plus citation and search metadata.
+  fields:
+    config_entry:
+      name: ChatGPT OAuth account
+      description: The configured ChatGPT account to use.
+      required: true
+      selector:
+        config_entry:
+          integration: openai_oauth_conversation
+    query:
+      name: Query
+      description: The question or research request to answer from web search.
+      required: true
+      selector:
+        text:
+          multiline: true
+    system_prompt:
+      name: System prompt
+      description: Optional system prompt override for this action call.
+      required: false
+      selector:
+        text:
+          multiline: true
+    model:
+      name: Model
+      description: Optional model override for this action call.
+      required: false
+      selector:
+        select:
+          options:
+            - label: GPT-5.6 Sol
+              value: gpt-5.6-sol
+            - label: GPT-5.6 Terra
+              value: gpt-5.6-terra
+            - label: GPT-5.6 Luna
+              value: gpt-5.6-luna
+            - label: GPT-5.5
+              value: gpt-5.5
+    reasoning_effort:
+      name: Thinking level
+      description: Optional per-call override. It must be supported by the selected model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+            - label: Extra high
+              value: xhigh
+            - label: Max
+              value: max
+            - label: Ultra
+              value: ultra
+    web_search_context_size:
+      name: Search context size
+      description: How much web-result context is made available to the model.
+      required: false
+      selector:
+        select:
+          options:
+            - label: Low
+              value: low
+            - label: Medium
+              value: medium
+            - label: High
+              value: high
+    web_search_live_access:
+      name: Live internet access
+      description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_location:
+      name: Use Home Assistant location
+      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      required: false
+      selector:
+        boolean:
+    allowed_domains:
+      name: Allowed domains
+      description: Optional list of domains that web search may use, such as openai.com or home-assistant.io. Do not include paths.
+      required: false
+      selector:
+        text:
           multiple: true

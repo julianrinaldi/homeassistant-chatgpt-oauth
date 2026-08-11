@@ -13,6 +13,10 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
+    CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_LIVE_ACCESS,
+    CONF_WEB_SEARCH_MODE,
+    CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
 )
 
@@ -33,6 +37,10 @@ async def test_full_user_flow(hass) -> None:
             CONF_ENABLE_HASS_CONTROL: False,
             CONF_MODEL: "gpt-5.6-luna",
             CONF_PROMPT: "Be helpful.",
+            CONF_WEB_SEARCH_MODE: "auto",
+            CONF_WEB_SEARCH_CONTEXT_SIZE: "high",
+            CONF_WEB_SEARCH_LIVE_ACCESS: False,
+            CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
         },
     )
     assert result["step_id"] == "reasoning"
@@ -77,3 +85,7 @@ async def test_full_user_flow(hass) -> None:
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
     assert result["data"][CONF_MODEL] == "gpt-5.6-luna"
     assert result["data"][CONF_REASONING_EFFORT] == "max"
+    assert result["data"][CONF_WEB_SEARCH_MODE] == "auto"
+    assert result["data"][CONF_WEB_SEARCH_CONTEXT_SIZE] == "high"
+    assert result["data"][CONF_WEB_SEARCH_LIVE_ACCESS] is False
+    assert result["data"][CONF_WEB_SEARCH_USE_HASS_LOCATION] is True

@@ -43,6 +43,7 @@ from .schema import (
     structured_output_format as _structured_output_format,
 )
 from .sse import iter_sse_json as _iter_sse
+from .web_search import WebSearchOptions
 
 __all__ = [
     "ChatGPTOAuthClient",
@@ -51,6 +52,7 @@ __all__ = [
     "CodexResponse",
     "CodexTurn",
     "OpenAIOAuthError",
+    "WebSearchOptions",
     "_build_turn_payload",
     "_decode_image_item",
     "_fallback_json_instructions",
@@ -116,6 +118,7 @@ async def create_response(
     input_items: list[dict[str, Any]] | None = None,
     text_format: dict[str, Any] | None = None,
     reasoning_effort: str | None = None,
+    web_search: WebSearchOptions | None = None,
 ) -> ChatGPTTextResponse:
     """Create a text response."""
     return await client_for_entry(hass, entry).async_create_response(
@@ -125,6 +128,7 @@ async def create_response(
         input_items=input_items,
         text_format=text_format,
         reasoning_effort=reasoning_effort,
+        web_search=web_search,
     )
 
 
@@ -155,6 +159,7 @@ async def create_data_response(
     structure: vol.Schema | None,
     llm_api: llm.APIInstance | None = None,
     reasoning_effort: str | None = None,
+    web_search: WebSearchOptions | None = None,
 ) -> ChatGPTDataResponse:
     """Generate plain text or structured data."""
     return await client_for_entry(hass, entry).async_create_data_response(
@@ -165,6 +170,7 @@ async def create_data_response(
         structure=structure,
         llm_api=llm_api,
         reasoning_effort=reasoning_effort,
+        web_search=web_search,
     )
 
 
@@ -180,6 +186,7 @@ async def create_tool_response(
     input_items: list[dict[str, Any]] | None = None,
     text_format: dict[str, Any] | None = None,
     reasoning_effort: str | None = None,
+    web_search: WebSearchOptions | None = None,
 ) -> ChatGPTTextResponse:
     """Create a response with Home Assistant tools enabled."""
     return await client_for_entry(hass, entry).async_create_tool_response(
@@ -191,4 +198,5 @@ async def create_tool_response(
         input_items=input_items,
         text_format=text_format,
         reasoning_effort=reasoning_effort,
+        web_search=web_search,
     )

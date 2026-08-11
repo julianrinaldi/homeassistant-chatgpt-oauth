@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.openai_oauth_conversation.client import (
+    _validate_required_web_search,
     build_request_headers,
     build_turn_payload,
     serialize_request_payload,
@@ -17,8 +18,14 @@ from custom_components.openai_oauth_conversation.const import (
 )
 from custom_components.openai_oauth_conversation.exceptions import (
     RequestValidationError,
+    ResponseParseError,
 )
 from custom_components.openai_oauth_conversation.models import MODEL_PROFILES
+from custom_components.openai_oauth_conversation.responses import WebCitation
+from custom_components.openai_oauth_conversation.web_search import (
+    WEB_SEARCH_REQUIRED,
+    WebSearchOptions,
+)
 
 
 @pytest.mark.parametrize("model", tuple(MODEL_PROFILES))
@@ -104,3 +111,54 @@ def test_request_headers_include_account_and_lite_transport() -> None:
     assert headers["Authorization"] == "Bearer token"
     assert headers["ChatGPT-Account-ID"] == "account-123"
     assert headers["X-OpenAI-Internal-Codex-Responses-Lite"] == "true"
+
+
+@pytest.mark.parametrize("model", tuple(MODEL_PROFILES))
+def test_web_search_uses_full_responses_transport(model: str) -> None:
+    """Native hosted web search stays top-level and disables Responses Lite."""
+    payload, responses_lite = build_turn_payload(
+        model=model,
+        instructions="Search and cite sources.",
+        input_items=[
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Latest news"}],
+            }
+        ],
+        tools=[
+            {
+                "type": "web_search",
+                "search_context_size": "high",
+                "external_web_access": True,
+            }
+        ],
+        tool_choice="required",
+        include=["web_search_call.action.sources"],
+        reasoning_effort=MODEL_PROFILES[model].default_reasoning_effort,
+    )
+
+    assert responses_lite is False
+    assert payload["tools"] == [
+        {
+            "type": "web_search",
+            "search_context_size": "high",
+            "external_web_access": True,
+        }
+    ]
+    assert payload["tool_choice"] == "required"
+    assert payload["include"] == ["web_search_call.action.sources"]
+    assert payload["instructions"] == "Search and cite sources."
+
+
+def test_required_web_search_must_produce_search_evidence() -> None:
+    """Required mode never silently returns an unsearched answer."""
+    options = WebSearchOptions(mode=WEB_SEARCH_REQUIRED)
+    with pytest.raises(ResponseParseError, match="required OpenAI web search"):
+        _validate_required_web_search(options, citations=[], searches=[])
+
+    _validate_required_web_search(
+        options,
+        citations=[WebCitation(url="https://example.com", title="Example")],
+        searches=[],
+    )

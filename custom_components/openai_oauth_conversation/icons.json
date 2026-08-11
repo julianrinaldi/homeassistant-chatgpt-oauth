@@ -5,6 +5,9 @@
     },
     "analyze_image": {
       "service": "mdi:image-search"
+    },
+    "web_search": {
+      "service": "mdi:web"
     }
   }
 }

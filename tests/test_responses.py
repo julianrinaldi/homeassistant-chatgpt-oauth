@@ -9,8 +9,13 @@ from custom_components.openai_oauth_conversation.responses import (
     image_items_from_event,
     parse_reported_size,
     png_dimensions,
+    render_text_with_web_citations,
     response_output_items,
     text_from_output_items,
+    url_citation_from_annotation,
+    url_citations_from_output_items,
+    web_search_actions_from_output_items,
+    web_sources,
 )
 
 
@@ -75,3 +80,100 @@ def test_image_items_and_reported_sizes() -> None:
     assert len(image_items_from_event(completed)) == 1
     assert parse_reported_size("1024x1536") == (1024, 1536)
     assert parse_reported_size({"width": 512, "height": 768}) == (512, 768)
+
+
+def test_web_search_citations_and_sources_are_clickable() -> None:
+    """Completed web-search output becomes clickable Markdown and metadata."""
+    text = "The Eiffel Tower opened in 1889."
+    start = text.index("opened")
+    items = [
+        {
+            "type": "web_search_call",
+            "id": "ws_123",
+            "status": "completed",
+            "action": {
+                "type": "search",
+                "query": "Eiffel Tower opening date",
+                "sources": [
+                    {"type": "url", "url": "https://example.com/eiffel"},
+                    {"type": "url", "url": "https://example.org/history"},
+                ],
+            },
+        },
+        {
+            "type": "message",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": text,
+                    "annotations": [
+                        {
+                            "type": "url_citation",
+                            "url": "https://example.com/eiffel",
+                            "title": "Eiffel Tower history",
+                            "start_index": start,
+                            "end_index": len(text),
+                        }
+                    ],
+                }
+            ],
+        },
+    ]
+
+    citations = url_citations_from_output_items(items)
+    searches = web_search_actions_from_output_items(items)
+    sources = web_sources(citations, searches)
+    rendered = render_text_with_web_citations(text, citations, searches)
+
+    assert citations[0].title == "Eiffel Tower history"
+    assert searches[0].query == "Eiffel Tower opening date"
+    assert [source.url for source in sources] == [
+        "https://example.com/eiffel",
+        "https://example.org/history",
+    ]
+    assert "The Eiffel Tower opened in 1889." in rendered
+    assert "[1](<https://example.com/eiffel>)" in rendered
+    assert "[Eiffel Tower history](<https://example.com/eiffel>)" in rendered
+    assert "[example.org](<https://example.org/history>)" in rendered
+
+
+def test_streamed_nested_url_annotation_is_supported() -> None:
+    """Streaming annotations may wrap citation fields in ``url_citation``."""
+    citation = url_citation_from_annotation(
+        {
+            "type": "url_citation",
+            "url_citation": {
+                "url": "https://example.com/current",
+                "title": "Current source",
+                "start_index": 0,
+                "end_index": 7,
+            },
+        }
+    )
+    assert citation is not None
+    assert citation.url == "https://example.com/current"
+    assert citation.end_index == 7
+
+
+def test_unsafe_citation_url_is_not_rendered() -> None:
+    """Credentials and control characters cannot become clickable citations."""
+    assert (
+        url_citation_from_annotation(
+            {
+                "type": "url_citation",
+                "url": "https://user:password@example.com/private",
+                "title": "Unsafe",
+            }
+        )
+        is None
+    )
+    assert (
+        url_citation_from_annotation(
+            {
+                "type": "url_citation",
+                "url": "https://example.com/line\nbreak",
+                "title": "Unsafe",
+            }
+        )
+        is None
+    )
