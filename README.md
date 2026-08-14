@@ -20,7 +20,7 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, Ope
 ## Features
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
-- Native OpenAI `web_search` support with sourced answers and clickable citations.
+- Native OpenAI `web_search` support with voice-friendly answers and retained citation metadata.
 - Configurable disabled, automatic, or required web-search behavior.
 - Low, medium, or high search context; live or cache/index-only access; optional approximate Home Assistant location.
 - Dedicated web-search action with optional domain allowlisting and machine-readable source metadata.
@@ -87,7 +87,7 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 3. Search for **ChatGPT OAuth**.
 4. Enter a friendly name and select a model.
 5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
-6. Choose the default OpenAI web-search mode, search context size, live-access behavior, and whether approximate Home Assistant location may be used.
+6. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
 7. Optionally customize the system prompt.
 8. Choose a thinking level supported by the selected model.
 9. Open the displayed ChatGPT sign-in link.
@@ -124,11 +124,14 @@ Configure the default behavior under **Settings → Devices & services → ChatG
 | **Context: Low** | Smaller search-result context for quick lookups. |
 | **Context: Medium** | Balanced default. |
 | **Context: High** | More result context for detailed research. |
+| **Include sources in response text** | Adds clickable citation markers and a `Sources` section. This is disabled by default so voice assistants speak a natural answer. |
 | **Live access enabled** | Search may fetch current external pages. |
 | **Live access disabled** | Search is limited to OpenAI's cached or indexed content when supported. |
 | **Use Home Assistant location** | Sends only Home Assistant's country and time zone as an approximate hint. Coordinates and the configured home name are not sent. |
 
-When search is used, plain-text responses preserve OpenAI's cited answer and add clickable Markdown citation markers plus a `Sources` section. The dedicated integration actions also return structured citation, source, and search-action lists.
+When **Include sources in response text** is disabled, the spoken Assist response and normal `text` output contain only the natural answer. Citation annotations, unique sources, and reported search actions are still retained. Assist places the fully cited answer in a separate **Web search sources** card for interfaces that display cards, while the dedicated integration actions expose a separate `cited_text` value plus structured citation metadata.
+
+Enable **Include sources in response text** when the answer is intended for a dashboard, notification, or document and should contain clickable Markdown citations and a `Sources` section directly in the main text.
 
 ### Assist with web search
 
@@ -147,7 +150,7 @@ The AI Task entity uses the integration's configured search settings:
     entity_id: ai_task.chatgpt_oauth_ai_task
     instructions: >-
       Find the latest stable Home Assistant release and summarize its three
-      most important user-facing changes. Include sources.
+      most important user-facing changes.
   response_variable: release_summary
 
 - action: persistent_notification.create
@@ -156,7 +159,7 @@ The AI Task entity uses the integration's configured search settings:
     message: "{{ release_summary.data }}"
 ```
 
-For free-text tasks, citations are included in the returned text. Structured-output tasks return only the fields declared by the Home Assistant `structure`; use the dedicated web-search action when an automation needs separate citation metadata.
+For free-text tasks, source formatting follows the integration setting. With the default voice-friendly setting, `release_summary.data` contains only the answer. Enable source inclusion when the AI Task output itself must contain citations. Structured-output tasks return only the fields declared by the Home Assistant `structure`; use the dedicated web-search action when an automation needs separate citation metadata.
 
 ### Dedicated web-search action
 
@@ -172,6 +175,7 @@ For free-text tasks, citations are included in the returned text. Structured-out
     model: gpt-5.6-terra
     reasoning_effort: high
     web_search_context_size: high
+    web_search_include_sources: false
     web_search_live_access: true
     allowed_domains:
       - home-assistant.io
@@ -184,16 +188,18 @@ Common response values:
 ```jinja2
 {{ research.text }}
 {{ research.raw_text }}
+{{ research.cited_text }}
 {{ research.citations }}
 {{ research.sources }}
 {{ research.searches }}
 {{ research.model }}
 {{ research.reasoning_effort }}
 {{ research.search_context_size }}
+{{ research.include_sources_in_text }}
 {{ research.live_access }}
 ```
 
-Each item in `research.citations` contains `url`, `title`, `start_index`, and `end_index`. Each item in `research.sources` contains `url` and `title`. `research.searches` records search, page-open, or find-in-page actions reported by the hosted tool.
+`research.text` follows the selected source-display setting. `research.raw_text` is the unformatted model answer, and `research.cited_text` always contains the clickable cited version. Each item in `research.citations` contains `url`, `title`, `start_index`, and `end_index`. Each item in `research.sources` contains `url` and `title`. `research.searches` records search, page-open, or find-in-page actions reported by the hosted tool.
 
 Allowed domains must be hostnames such as `home-assistant.io` or `developers.openai.com`; do not include a URL path, query, or fragment.
 
@@ -357,10 +363,11 @@ The actions below use the backward-compatible domain `openai_oauth_conversation`
     model: gpt-5.6-terra
     reasoning_effort: medium
     web_search_mode: configured
+    web_search_include_sources: false
   response_variable: generated
 ```
 
-Search may be overridden per call with `configured`, `disabled`, `auto`, or `required`. The response includes `text`, `raw_text`, `citations`, `sources`, and `searches`.
+Search may be overridden per call with `configured`, `disabled`, `auto`, or `required`. Source display may also be overridden with `web_search_include_sources`. The response includes `text`, `raw_text`, `cited_text`, `citations`, `sources`, and `searches`.
 
 ### `openai_oauth_conversation.analyze_image`
 
@@ -376,21 +383,22 @@ This action accepts up to ten images from any mixture of:
     config_entry: 0123456789abcdef0123456789abcdef
     prompt: >-
       Identify the visible plant and use web search to summarize its current
-      care recommendations with sources.
+      care recommendations.
     entity_id:
       - camera.plant_camera
     web_search_mode: required
     web_search_context_size: medium
+    web_search_include_sources: false
   response_variable: analysis
 ```
 
-The response includes `text`, `response_text`, `raw_text`, `citations`, `sources`, and `searches`.
+The response includes `text`, `response_text`, `raw_text`, `cited_text`, `citations`, `sources`, and `searches`.
 
 ## Reconfiguration and reauthentication
 
 Open **Settings → Devices & services → ChatGPT OAuth** and use:
 
-- **Reconfigure** to change the entry name, model, Home Assistant control access, system prompt, thinking level, or web-search defaults.
+- **Reconfigure** to change the entry name, model, Home Assistant control access, system prompt, thinking level, source-display behavior, or other web-search defaults.
 - **Reauthenticate** when Home Assistant reports that the OAuth session has expired or been revoked.
 - **Download diagnostics** when filing a bug report. Diagnostics exclude tokens, account identifiers, prompts, attachments, conversation text, search queries, source contents, and generated output.
 
@@ -452,6 +460,10 @@ Use **Reconfigure** and select a combination shown by the integration. The hoste
 
 Required mode raises an error instead of returning an answer when the backend provides no search call or citation evidence.
 
+### Sources are spoken by the voice assistant
+
+Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** and disable **Include sources in response text**. Assist will speak only the natural answer. Interfaces that support response cards can still display the fully cited answer, and integration actions continue returning `cited_text`, `citations`, `sources`, and `searches`.
+
 ### Search controls are rejected
 
 The integration automatically retries without individually rejected optional controls and can fall back from `web_search` to `web_search_preview` only when doing so preserves the requested privacy constraints. It refuses the fallback rather than silently removing cache-only access or a domain allowlist.
@@ -471,6 +483,7 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
+- Upgrading from 1.1.1 to 1.2.0 adds configurable source presentation. Existing entries default to voice-friendly text without appended sources; re-enable **Include sources in response text** to preserve the v1.1 behavior.
 - Upgrading from 1.1.0 to 1.1.1 changes only HACS packaging and release automation; Home Assistant configuration and runtime behavior are unchanged.
 - Upgrading from 1.0.0 to 1.1.x preserves existing entries and leaves web search disabled until explicitly enabled.
 - Upgrading from 0.5.x preserves the stable domain, config-entry data, service namespace, conversation unique ID, and AI Task unique ID.

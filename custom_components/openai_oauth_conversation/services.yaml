@@ -78,6 +78,12 @@ generate_content:
               value: medium
             - label: High
               value: high
+    web_search_include_sources:
+      name: Include sources in response text
+      description: Add clickable citations and a Sources section to the returned text. Disable this for natural voice-assistant responses; citation metadata is still returned separately.
+      required: false
+      selector:
+        boolean:
     web_search_live_access:
       name: Live internet access
       description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.
@@ -178,6 +184,12 @@ analyze_image:
               value: medium
             - label: High
               value: high
+    web_search_include_sources:
+      name: Include sources in response text
+      description: Add clickable citations and a Sources section to the returned text. Disable this for natural voice-assistant responses; citation metadata is still returned separately.
+      required: false
+      selector:
+        boolean:
     web_search_live_access:
       name: Live internet access
       description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.
@@ -217,7 +229,7 @@ analyze_image:
 
 web_search:
   name: Web search
-  description: Force OpenAI web search for a question and return sourced text plus citation and search metadata.
+  description: Force OpenAI web search for a question and return clean text, a fully cited text variant, and structured citation and search metadata.
   fields:
     config_entry:
       name: ChatGPT OAuth account
@@ -287,6 +299,12 @@ web_search:
               value: medium
             - label: High
               value: high
+    web_search_include_sources:
+      name: Include sources in response text
+      description: Add clickable citations and a Sources section to the returned text. Disable this for natural voice-assistant responses; citation metadata is still returned separately.
+      required: false
+      selector:
+        boolean:
     web_search_live_access:
       name: Live internet access
       description: Allow OpenAI web search to fetch live pages instead of using only cached or indexed content.

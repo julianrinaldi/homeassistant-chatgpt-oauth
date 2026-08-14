@@ -2,6 +2,29 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.2.0] - 2026-08-14
+
+### Added
+
+- A configurable **Include sources in response text** setting for OpenAI web search.
+- Voice-friendly source presentation for Assist: speech contains only the natural answer while interfaces that support cards receive a separate **Web search sources** card with clickable citations.
+- A `cited_text` field in `generate_content`, `analyze_image`, and dedicated `web_search` action responses.
+- A per-call `web_search_include_sources` override for all integration text actions.
+- Source-presentation state in sanitized diagnostics and AI Task entity attributes.
+
+### Changed
+
+- New and migrated entries default to source-free response text so voice pipelines do not speak citation numbers, URLs, or a source list.
+- Citation annotations, unique sources, and reported search actions remain available even when source formatting is hidden from the main text.
+- `text` follows the configured or per-call source-display setting; `raw_text` remains the unformatted answer; `cited_text` always provides the clickable cited version.
+- Public repository metadata and links now use `julianrinaldi/homeassistant-chatgpt-oauth`.
+
+### Compatibility
+
+- Existing OAuth credentials, config entries, entity IDs, action names, models, thinking levels, and web-search modes are preserved.
+- Users who prefer the v1.1 cited-text behavior can enable **Include sources in response text** under Reconfigure.
+- The stable internal domain remains `openai_oauth_conversation`.
+
 ## [1.1.1] - 2026-08-14
 
 ### Fixed
@@ -85,3 +108,4 @@ All notable user-facing changes are documented in this file.
 [1.1.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.0.0...v1.1.0
 
 [1.1.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.0...v1.1.1
+[1.2.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.1...v1.2.0

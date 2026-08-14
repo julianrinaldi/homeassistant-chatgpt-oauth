@@ -6,6 +6,9 @@ from types import MethodType, SimpleNamespace
 import pytest
 
 from custom_components.openai_oauth_conversation.client import ChatGPTOAuthClient
+from custom_components.openai_oauth_conversation.const import (
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+)
 from custom_components.openai_oauth_conversation.exceptions import (
     RequestValidationError,
 )
@@ -17,6 +20,7 @@ from custom_components.openai_oauth_conversation.web_search import (
     normalize_allowed_domains,
     normalize_web_search_context_size,
     normalize_web_search_mode,
+    web_search_instructions,
 )
 
 
@@ -101,6 +105,34 @@ def test_location_never_exposes_coordinates() -> None:
         "country": "US",
         "timezone": "America/New_York",
     }
+
+
+def test_voice_friendly_search_instructions_do_not_request_spoken_sources() -> None:
+    """Source annotations remain available without cluttering spoken answers."""
+    hidden = web_search_instructions(
+        WebSearchOptions(mode="auto", include_sources=False)
+    )
+    visible = web_search_instructions(
+        WebSearchOptions(mode="auto", include_sources=True)
+    )
+
+    assert "without adding citation numbers" in hidden
+    assert "Sources section" in hidden
+    assert "Preserve source citation annotations" in visible
+
+
+def test_source_display_resolves_from_config_and_per_call_override() -> None:
+    """The account default can be overridden for one integration action."""
+    client = object.__new__(ChatGPTOAuthClient)
+    client.entry = SimpleNamespace(
+        data={CONF_WEB_SEARCH_INCLUDE_SOURCES: True}
+    )
+
+    assert client.resolve_web_search_options().include_sources is True
+    assert (
+        client.resolve_web_search_options(include_sources=False).include_sources
+        is False
+    )
 
 
 def _client_with_rejected_request(message: str) -> ChatGPTOAuthClient:

@@ -87,6 +87,15 @@ class ChatGPTTextResponse:
         """Return unique cited and consulted web sources."""
         return web_sources(self.citations, self.searches)
 
+    @property
+    def cited_text(self) -> str:
+        """Return the answer with clickable inline citations and sources."""
+        return render_text_with_web_citations(
+            self.raw_text or self.text,
+            self.citations,
+            self.searches,
+        )
+
 
 @dataclass(slots=True)
 class ChatGPTDataResponse:
@@ -102,6 +111,15 @@ class ChatGPTDataResponse:
     def sources(self) -> list[WebSource]:
         """Return unique cited and consulted web sources."""
         return web_sources(self.citations, self.searches)
+
+    @property
+    def cited_text(self) -> str:
+        """Return the answer with clickable inline citations and sources."""
+        return render_text_with_web_citations(
+            self.text,
+            self.citations,
+            self.searches,
+        )
 
 
 @dataclass(slots=True)

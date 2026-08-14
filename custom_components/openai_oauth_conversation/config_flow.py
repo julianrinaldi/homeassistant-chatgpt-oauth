@@ -27,6 +27,7 @@ from .const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
@@ -35,6 +36,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
@@ -137,6 +139,7 @@ def _web_search_settings(
     *,
     default_mode: str,
     default_context_size: str,
+    default_include_sources: bool,
     default_live_access: bool,
     default_use_location: bool,
 ) -> dict[str, Any]:
@@ -149,6 +152,12 @@ def _web_search_settings(
         CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
             user_input.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
             default=default_context_size,
+        ),
+        CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
+            user_input.get(
+                CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                default_include_sources,
+            )
         ),
         CONF_WEB_SEARCH_LIVE_ACCESS: bool(
             user_input.get(CONF_WEB_SEARCH_LIVE_ACCESS, default_live_access)
@@ -165,7 +174,7 @@ def _web_search_settings(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure ChatGPT OAuth."""
 
-    VERSION = 7
+    VERSION = 8
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]
@@ -186,6 +195,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     user_input,
                     default_mode=DEFAULT_WEB_SEARCH_MODE,
                     default_context_size=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+                    default_include_sources=DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
                     default_live_access=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
                     default_use_location=DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
                 )
@@ -227,6 +237,10 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_WEB_SEARCH_CONTEXT_SIZE,
                     default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
                 ): _web_search_context_schema(),
+                vol.Optional(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    default=DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                ): bool,
                 vol.Optional(
                     CONF_WEB_SEARCH_LIVE_ACCESS,
                     default=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
@@ -354,6 +368,12 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_WEB_SEARCH_CONTEXT_SIZE,
                 DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
             ),
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
+                self._oauth_input.get(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                )
+            ),
             CONF_WEB_SEARCH_LIVE_ACCESS: bool(
                 self._oauth_input.get(
                     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -433,6 +453,12 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     user_input,
                     default_mode=current_web_search_mode,
                     default_context_size=current_web_search_context,
+                    default_include_sources=bool(
+                        entry.data.get(
+                            CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                            DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                        )
+                    ),
                     default_live_access=bool(
                         entry.data.get(
                             CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -493,6 +519,13 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_WEB_SEARCH_CONTEXT_SIZE,
                     default=current_web_search_context,
                 ): _web_search_context_schema(),
+                vol.Optional(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    default=entry.data.get(
+                        CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                        DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                    ),
+                ): bool,
                 vol.Optional(
                     CONF_WEB_SEARCH_LIVE_ACCESS,
                     default=entry.data.get(
@@ -556,6 +589,9 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_WEB_SEARCH_CONTEXT_SIZE: self._reconfigure_input[
                             CONF_WEB_SEARCH_CONTEXT_SIZE
                         ],
+                        CONF_WEB_SEARCH_INCLUDE_SOURCES: self._reconfigure_input[
+                            CONF_WEB_SEARCH_INCLUDE_SOURCES
+                        ],
                         CONF_WEB_SEARCH_LIVE_ACCESS: self._reconfigure_input[
                             CONF_WEB_SEARCH_LIVE_ACCESS
                         ],
@@ -616,6 +652,12 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
                 entry_data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
                 default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+            ),
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
+                entry_data.get(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                )
             ),
             CONF_WEB_SEARCH_LIVE_ACCESS: bool(
                 entry_data.get(

@@ -38,6 +38,7 @@ class WebSearchOptions:
 
     mode: str = WEB_SEARCH_DISABLED
     context_size: str = WEB_SEARCH_CONTEXT_MEDIUM
+    include_sources: bool = False
     live_access: bool = True
     use_home_assistant_location: bool = False
     allowed_domains: tuple[str, ...] = ()
@@ -184,13 +185,22 @@ def build_web_search_tool(
 
 
 def web_search_instructions(options: WebSearchOptions) -> str:
-    """Return additional model instructions for sourced web answers."""
+    """Return additional model instructions for source-backed web answers."""
     if not options.enabled:
         return ""
-    instruction = (
-        "When you use web search, base factual claims on the search results and "
-        "preserve the response's source citations. Do not invent URLs or sources."
-    )
+    if options.include_sources:
+        instruction = (
+            "When you use web search, base factual claims on the search results. "
+            "Preserve source citation annotations and do not invent URLs or sources."
+        )
+    else:
+        instruction = (
+            "When you use web search, base factual claims on the search results. "
+            "Answer naturally without adding citation numbers, raw URLs, source "
+            "names, a bibliography, or a Sources section to the response text. "
+            "The integration retains citation annotations separately. Do not invent "
+            "URLs or sources."
+        )
     if options.required:
         instruction = (
             "You must use web search before answering this request. " + instruction

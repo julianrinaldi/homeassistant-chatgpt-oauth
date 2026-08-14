@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.openai_oauth_conversation.client import (
+    _render_response_text,
     _validate_required_web_search,
     build_request_headers,
     build_turn_payload,
@@ -21,7 +22,10 @@ from custom_components.openai_oauth_conversation.exceptions import (
     ResponseParseError,
 )
 from custom_components.openai_oauth_conversation.models import MODEL_PROFILES
-from custom_components.openai_oauth_conversation.responses import WebCitation
+from custom_components.openai_oauth_conversation.responses import (
+    WebCitation,
+    WebSearchAction,
+)
 from custom_components.openai_oauth_conversation.web_search import (
     WEB_SEARCH_REQUIRED,
     WebSearchOptions,
@@ -162,3 +166,39 @@ def test_required_web_search_must_produce_search_evidence() -> None:
         citations=[WebCitation(url="https://example.com", title="Example")],
         searches=[],
     )
+
+
+def test_source_rendering_can_be_hidden_for_voice_responses() -> None:
+    """Citation metadata is retained without adding it to spoken text."""
+    text = "The current answer is concise."
+    citations = [
+        WebCitation(
+            url="https://example.com/current",
+            title="Current source",
+            start_index=0,
+            end_index=len(text),
+        )
+    ]
+    searches = [
+        WebSearchAction(
+            call_id="ws_1",
+            action="search",
+            query="current answer",
+        )
+    ]
+
+    assert _render_response_text(
+        text,
+        citations,
+        searches,
+        WebSearchOptions(mode="auto", include_sources=False),
+    ) == text
+
+    cited = _render_response_text(
+        text,
+        citations,
+        searches,
+        WebSearchOptions(mode="auto", include_sources=True),
+    )
+    assert "Sources:" in cited
+    assert "https://example.com/current" in cited

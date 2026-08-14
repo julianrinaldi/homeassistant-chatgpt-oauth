@@ -120,14 +120,38 @@ class ChatGPTOAuthConversationEntity(
         chat_log.async_add_assistant_content_without_tools(
             conversation.AssistantContent(
                 agent_id=user_input.agent_id,
-                content=result.text,
+                content=result.raw_text or result.text,
             )
         )
-        return conversation.async_get_result_from_chat_log(user_input, chat_log)
+        conversation_result = conversation.async_get_result_from_chat_log(
+            user_input,
+            chat_log,
+        )
+        _apply_web_search_presentation(
+            conversation_result,
+            result,
+            include_sources=client.web_search_options.include_sources,
+        )
+        return conversation_result
 
 
 # Backward-compatible class name for downstream imports.
 OpenAIOAuthConversationEntity = ChatGPTOAuthConversationEntity
+
+
+def _apply_web_search_presentation(
+    conversation_result: conversation.ConversationResult,
+    result: Any,
+    *,
+    include_sources: bool,
+) -> None:
+    """Keep Assist speech natural while preserving clickable source details."""
+    conversation_result.response.async_set_speech(result.text)
+    if not include_sources and (result.citations or result.searches):
+        conversation_result.response.async_set_card(
+            "Web search sources",
+            result.cited_text,
+        )
 
 
 def _chat_log_instructions(chat_log: conversation.ChatLog) -> str:

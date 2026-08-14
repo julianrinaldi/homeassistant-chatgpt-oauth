@@ -14,6 +14,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
@@ -39,6 +40,7 @@ async def test_full_user_flow(hass) -> None:
             CONF_PROMPT: "Be helpful.",
             CONF_WEB_SEARCH_MODE: "auto",
             CONF_WEB_SEARCH_CONTEXT_SIZE: "high",
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: False,
             CONF_WEB_SEARCH_LIVE_ACCESS: False,
             CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
         },
@@ -87,5 +89,6 @@ async def test_full_user_flow(hass) -> None:
     assert result["data"][CONF_REASONING_EFFORT] == "max"
     assert result["data"][CONF_WEB_SEARCH_MODE] == "auto"
     assert result["data"][CONF_WEB_SEARCH_CONTEXT_SIZE] == "high"
+    assert result["data"][CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert result["data"][CONF_WEB_SEARCH_LIVE_ACCESS] is False
     assert result["data"][CONF_WEB_SEARCH_USE_HASS_LOCATION] is True

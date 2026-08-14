@@ -6,10 +6,12 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.1.1"
+INTEGRATION_VERSION: Final = "1.2.0"
 LOGGER = logging.getLogger(__package__)
 
-REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
+REPOSITORY_URL: Final = (
+    "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
+)
 ISSUE_TRACKER_URL: Final = f"{REPOSITORY_URL}/issues"
 
 CONF_ACCESS_TOKEN: Final = "access_token"
@@ -22,6 +24,7 @@ CONF_PROMPT: Final = "prompt"
 CONF_REASONING_EFFORT: Final = "reasoning_effort"
 CONF_WEB_SEARCH_MODE: Final = "web_search_mode"
 CONF_WEB_SEARCH_CONTEXT_SIZE: Final = "web_search_context_size"
+CONF_WEB_SEARCH_INCLUDE_SOURCES: Final = "web_search_include_sources"
 CONF_WEB_SEARCH_LIVE_ACCESS: Final = "web_search_live_access"
 CONF_WEB_SEARCH_USE_HASS_LOCATION: Final = "web_search_use_home_assistant_location"
 
@@ -34,6 +37,7 @@ DEFAULT_PROMPT: Final = (
 )
 DEFAULT_WEB_SEARCH_MODE: Final = "disabled"
 DEFAULT_WEB_SEARCH_CONTEXT_SIZE: Final = "medium"
+DEFAULT_WEB_SEARCH_INCLUDE_SOURCES: Final = False
 DEFAULT_WEB_SEARCH_LIVE_ACCESS: Final = True
 DEFAULT_WEB_SEARCH_USE_HASS_LOCATION: Final = False
 

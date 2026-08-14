@@ -5,6 +5,8 @@ import base64
 import struct
 
 from custom_components.openai_oauth_conversation.responses import (
+    ChatGPTTextResponse,
+    WebCitation,
     decode_image_item,
     image_items_from_event,
     parse_reported_size,
@@ -135,6 +137,28 @@ def test_web_search_citations_and_sources_are_clickable() -> None:
     assert "[1](<https://example.com/eiffel>)" in rendered
     assert "[Eiffel Tower history](<https://example.com/eiffel>)" in rendered
     assert "[example.org](<https://example.org/history>)" in rendered
+
+
+def test_text_response_always_exposes_a_cited_variant() -> None:
+    """Clean action text can coexist with an always-available cited answer."""
+    raw_text = "A current fact."
+    response = ChatGPTTextResponse(
+        text=raw_text,
+        raw_text=raw_text,
+        raw_events=[],
+        citations=[
+            WebCitation(
+                url="https://example.com/fact",
+                title="Fact source",
+                start_index=0,
+                end_index=len(raw_text),
+            )
+        ],
+    )
+
+    assert response.text == raw_text
+    assert "Sources:" in response.cited_text
+    assert "https://example.com/fact" in response.cited_text
 
 
 def test_streamed_nested_url_annotation_is_supported() -> None:

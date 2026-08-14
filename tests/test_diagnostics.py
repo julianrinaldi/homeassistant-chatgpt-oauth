@@ -15,6 +15,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
@@ -36,7 +37,7 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Primary account",
-        version=7,
+        version=8,
         data={
             **secrets,
             CONF_EXPIRES: 4_000_000_000_000,
@@ -45,6 +46,7 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
             CONF_REASONING_EFFORT: "high",
             CONF_WEB_SEARCH_MODE: "required",
             CONF_WEB_SEARCH_CONTEXT_SIZE: "high",
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: False,
             CONF_WEB_SEARCH_LIVE_ACCESS: False,
             CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
         },
@@ -62,6 +64,7 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     assert diagnostics["web_search"] == {
         "mode": "required",
         "context_size": "high",
+        "includes_sources_in_response_text": False,
         "live_access": False,
         "uses_home_assistant_location": True,
         "location_detail": "country_and_timezone_only",

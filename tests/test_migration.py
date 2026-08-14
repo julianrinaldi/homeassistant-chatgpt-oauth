@@ -12,6 +12,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
@@ -38,7 +39,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 7
+    assert entry.version == 8
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
@@ -47,6 +48,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
     assert entry.data[CONF_WEB_SEARCH_MODE] == "disabled"
     assert entry.data[CONF_WEB_SEARCH_CONTEXT_SIZE] == "medium"
+    assert entry.data[CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False
     assert LEGACY_OUTPUT_LIMIT_KEY not in entry.data
@@ -64,6 +66,7 @@ async def test_migration_resets_invalid_web_search_settings(hass) -> None:
             CONF_MODEL: "gpt-5.6-terra",
             CONF_WEB_SEARCH_MODE: "sometimes",
             CONF_WEB_SEARCH_CONTEXT_SIZE: "enormous",
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: "true",
             CONF_WEB_SEARCH_LIVE_ACCESS: "false",
             CONF_WEB_SEARCH_USE_HASS_LOCATION: 1,
         },
@@ -73,5 +76,6 @@ async def test_migration_resets_invalid_web_search_settings(hass) -> None:
     assert await async_migrate_entry(hass, entry)
     assert entry.data[CONF_WEB_SEARCH_MODE] == "disabled"
     assert entry.data[CONF_WEB_SEARCH_CONTEXT_SIZE] == "medium"
+    assert entry.data[CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False

@@ -25,12 +25,14 @@ from .const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
@@ -298,6 +300,18 @@ def _validate_required_web_search(
         )
 
 
+def _render_response_text(
+    text: str,
+    citations: list[Any],
+    searches: list[Any],
+    web_search: WebSearchOptions | None,
+) -> str:
+    """Return clean voice text or a fully cited display response."""
+    if web_search is None or not web_search.include_sources:
+        return text.strip()
+    return render_text_with_web_citations(text, citations, searches)
+
+
 class ChatGPTOAuthClient:
     """Per-config-entry client and runtime state."""
 
@@ -360,6 +374,7 @@ class ChatGPTOAuthClient:
         *,
         mode: object | None = None,
         context_size: object | None = None,
+        include_sources: object | None = None,
         live_access: object | None = None,
         use_home_assistant_location: object | None = None,
         allowed_domains: object | None = None,
@@ -381,6 +396,16 @@ class ChatGPTOAuthClient:
             context_size,
             default=configured_context_size,
         )
+        resolved_include_sources = (
+            bool(
+                self.entry.data.get(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                )
+            )
+            if include_sources is None
+            else bool(include_sources)
+        )
         resolved_live_access = (
             bool(self.entry.data.get(
                 CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -400,6 +425,7 @@ class ChatGPTOAuthClient:
         return WebSearchOptions(
             mode=resolved_mode,
             context_size=resolved_context_size,
+            include_sources=resolved_include_sources,
             live_access=resolved_live_access,
             use_home_assistant_location=resolved_location,
             allowed_domains=normalize_allowed_domains(allowed_domains),
@@ -801,10 +827,11 @@ class ChatGPTOAuthClient:
             citations=turn.citations,
             searches=turn.searches,
         )
-        rendered_text = render_text_with_web_citations(
+        rendered_text = _render_response_text(
             turn.text,
             turn.citations,
             turn.searches,
+            web_search,
         )
         return ChatGPTTextResponse(
             text=rendered_text,
@@ -990,10 +1017,11 @@ class ChatGPTOAuthClient:
                     citations=citations,
                     searches=searches,
                 )
-                rendered_text = render_text_with_web_citations(
+                rendered_text = _render_response_text(
                     turn.text,
                     citations,
                     searches,
+                    web_search,
                 )
                 return ChatGPTDataResponse(
                     data=rendered_text,
@@ -1095,10 +1123,11 @@ class ChatGPTOAuthClient:
                     searches=searches,
                 )
                 return ChatGPTTextResponse(
-                    text=render_text_with_web_citations(
+                    text=_render_response_text(
                         turn.text,
                         citations,
                         searches,
+                        web_search,
                     ),
                     raw_text=turn.text,
                     raw_events=all_events,

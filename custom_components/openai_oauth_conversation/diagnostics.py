@@ -18,12 +18,14 @@ from .const import (
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_MODEL,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
@@ -121,6 +123,12 @@ async def async_get_config_entry_diagnostics(
         "web_search": {
             "mode": web_search_mode,
             "context_size": web_search_context_size,
+            "includes_sources_in_response_text": bool(
+                entry.data.get(
+                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
+                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
+                )
+            ),
             "live_access": bool(
                 entry.data.get(
                     CONF_WEB_SEARCH_LIVE_ACCESS,

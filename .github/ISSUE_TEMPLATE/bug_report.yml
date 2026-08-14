@@ -12,7 +12,7 @@ body:
     id: integration_version
     attributes:
       label: Integration version
-      placeholder: 1.1.1
+      placeholder: 1.2.0
     validations:
       required: true
   - type: input
@@ -38,6 +38,7 @@ body:
       options:
         - Setup or OAuth
         - Assist conversation agent
+        - OpenAI web search or source presentation
         - AI Task generate data
         - AI Task generate image
         - Image or PDF attachments

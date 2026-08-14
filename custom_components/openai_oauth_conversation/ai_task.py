@@ -78,6 +78,9 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
             "maximum_image_attachments": MAX_IMAGE_ATTACHMENTS,
             "web_search_mode": client.web_search_options.mode,
             "web_search_context_size": client.web_search_options.context_size,
+            "web_search_includes_sources_in_text": (
+                client.web_search_options.include_sources
+            ),
             "web_search_live_access": client.web_search_options.live_access,
             "web_search_uses_home_assistant_location": (
                 client.web_search_options.use_home_assistant_location

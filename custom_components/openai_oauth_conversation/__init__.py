@@ -29,6 +29,7 @@ from .const import (
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
+    CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
@@ -36,6 +37,7 @@ from .const import (
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
+    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
@@ -178,6 +180,7 @@ def _resolve_call_web_search(
         return client.resolve_web_search_options(
             mode=mode,
             context_size=call.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
+            include_sources=call.data.get(CONF_WEB_SEARCH_INCLUDE_SOURCES),
             live_access=call.data.get(CONF_WEB_SEARCH_LIVE_ACCESS),
             use_home_assistant_location=call.data.get(
                 CONF_WEB_SEARCH_USE_HASS_LOCATION
@@ -193,6 +196,7 @@ def _text_response_data(result: ChatGPTTextResponse) -> ServiceResponse:
     return {
         "text": result.text,
         "raw_text": result.raw_text or result.text,
+        "cited_text": result.cited_text,
         "citations": [citation.as_dict() for citation in result.citations],
         "sources": [source.as_dict() for source in result.sources],
         "searches": [search.as_dict() for search in result.searches],
@@ -225,6 +229,7 @@ def _shared_text_fields() -> dict[vol.Marker, Any]:
         vol.Optional(CONF_REASONING_EFFORT): _reasoning_validator,
         vol.Optional(CONF_WEB_SEARCH_MODE): _web_search_mode_validator,
         vol.Optional(CONF_WEB_SEARCH_CONTEXT_SIZE): _web_search_context_validator,
+        vol.Optional(CONF_WEB_SEARCH_INCLUDE_SOURCES): cv.boolean,
         vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
         vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
     }
@@ -333,6 +338,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 "model": model,
                 "reasoning_effort": reasoning_effort,
                 "search_context_size": search_options.context_size,
+                "include_sources_in_text": search_options.include_sources,
                 "live_access": search_options.live_access,
             }
         )
@@ -394,6 +400,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Optional(
                     CONF_WEB_SEARCH_CONTEXT_SIZE
                 ): _web_search_context_validator,
+                vol.Optional(CONF_WEB_SEARCH_INCLUDE_SOURCES): cv.boolean,
                 vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
                 vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
                 vol.Optional("allowed_domains", default=[]): vol.All(
@@ -409,7 +416,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 7:
+    if entry.version > 8:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -460,6 +467,12 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
         )
         data[CONF_WEB_SEARCH_CONTEXT_SIZE] = DEFAULT_WEB_SEARCH_CONTEXT_SIZE
+    include_sources = data.get(CONF_WEB_SEARCH_INCLUDE_SOURCES)
+    data[CONF_WEB_SEARCH_INCLUDE_SOURCES] = (
+        include_sources
+        if isinstance(include_sources, bool)
+        else DEFAULT_WEB_SEARCH_INCLUDE_SOURCES
+    )
     live_access = data.get(CONF_WEB_SEARCH_LIVE_ACCESS)
     data[CONF_WEB_SEARCH_LIVE_ACCESS] = (
         live_access
@@ -474,8 +487,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 7 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=7)
+    if entry.version < 8 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=8)
     return True
 
 
