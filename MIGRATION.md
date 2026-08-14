@@ -1,5 +1,32 @@
 # Migrating ChatGPT OAuth
 
+## From 1.1.0 to 1.1.1
+
+Version 1.1.1 corrects HACS repository and release-asset packaging. It does not change integration runtime behavior or stored Home Assistant data.
+
+### Preserved automatically
+
+- Existing config entries and OAuth credentials
+- Conversation and AI Task entity identities
+- Selected model and thinking level
+- Web-search settings
+- Home Assistant control setting
+- All existing actions and automations
+
+No reauthentication or reconfiguration is required.
+
+### HACS upgrade
+
+Use the normal HACS update action. HACS downloads the release asset named `chatgpt_oauth.zip`, whose files are packaged directly at the archive root for extraction into:
+
+```text
+/config/custom_components/openai_oauth_conversation
+```
+
+### Manual upgrade
+
+Download `chatgpt-oauth-manual.zip`, extract it into `/config`, and restart Home Assistant.
+
 ## From 1.0.0 to 1.1.0
 
 Version 1.1.0 adds OpenAI web search without changing the integration's stable Home Assistant identity.

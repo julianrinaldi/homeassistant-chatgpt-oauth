@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-chatgpt-oauth"
-version = "1.1.0"
+version = "1.1.1"
 description = "Unofficial ChatGPT OAuth integration for Home Assistant Assist, AI Tasks, image generation, and web search"
 readme = "README.md"
 requires-python = ">=3.13"

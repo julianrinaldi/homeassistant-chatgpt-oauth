@@ -66,20 +66,17 @@ Until default-catalog inclusion is complete:
 
 ### Manual installation
 
-1. Download the source archive for the desired release.
-2. Copy this directory:
+1. Download `chatgpt-oauth-manual.zip` from the desired GitHub release.
+2. Extract the archive into the Home Assistant configuration directory (`/config`).
+   The archive already contains the required path:
 
    ```text
    custom_components/openai_oauth_conversation
    ```
 
-   into:
-
-   ```text
-   /config/custom_components/openai_oauth_conversation
-   ```
-
 3. Restart Home Assistant.
+
+The separate `chatgpt_oauth.zip` release asset is packaged specifically for HACS and contains the integration files at the ZIP root. Do not extract that asset directly into `/config`.
 
 The internal integration domain remains `openai_oauth_conversation` for backward compatibility.
 
@@ -474,7 +471,8 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
-- Upgrading from 1.0.0 to 1.1.0 preserves existing entries and leaves web search disabled until explicitly enabled.
+- Upgrading from 1.1.0 to 1.1.1 changes only HACS packaging and release automation; Home Assistant configuration and runtime behavior are unchanged.
+- Upgrading from 1.0.0 to 1.1.x preserves existing entries and leaves web search disabled until explicitly enabled.
 - Upgrading from 0.5.x preserves the stable domain, config-entry data, service namespace, conversation unique ID, and AI Task unique ID.
 
 See [MIGRATION.md](MIGRATION.md) for details.
