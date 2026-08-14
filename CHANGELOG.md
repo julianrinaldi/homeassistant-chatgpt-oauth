@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.2.1] - 2026-08-14
+
+### Changed
+
+- Corrected all repository URLs, code-owner entries, commit authors, committers, and annotated-tag metadata to use `julianrinaldi`.
+- Removed maintainer-only release checklists, private build-validation reports, and tracked release-note staging files from the public repository.
+- Changed release automation to generate GitHub release notes without depending on a tracked maintainer file.
+- Rebuilt the public Git history beginning with v1.0.0 so historical tags contain the correct repository ownership and public file set.
+
+### Compatibility
+
+- No Home Assistant runtime behavior, OAuth data, config entries, entities, actions, models, thinking levels, web-search behavior, or automations change in this release.
+- The stable internal domain remains `openai_oauth_conversation`.
+
 ## [1.2.0] - 2026-08-14
 
 ### Added
@@ -109,3 +123,4 @@ All notable user-facing changes are documented in this file.
 
 [1.1.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.0...v1.1.1
 [1.2.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.1...v1.2.0
+[1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1

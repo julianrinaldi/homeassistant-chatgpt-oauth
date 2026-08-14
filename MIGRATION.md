@@ -1,5 +1,19 @@
 # Migrating ChatGPT OAuth
 
+## From 1.2.0 to 1.2.1
+
+Version 1.2.1 is a repository and release-packaging cleanup. It does not change integration runtime behavior or stored Home Assistant data.
+
+### Preserved automatically
+
+- Existing config entries and OAuth credentials
+- Conversation and AI Task entity identities
+- Selected model, thinking level, and web-search settings
+- Home Assistant control and source-presentation settings
+- Existing actions and automations
+
+No reauthentication or reconfiguration is required. Use the normal HACS update action or replace the manual-install directory and restart Home Assistant.
+
 ## From 1.1.1 to 1.2.0
 
 Version 1.2.0 adds voice-friendly control over how OpenAI web-search sources are presented.

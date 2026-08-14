@@ -483,6 +483,7 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
+- Upgrading from 1.2.0 to 1.2.1 changes only repository ownership metadata and public release packaging; Home Assistant configuration and runtime behavior are unchanged.
 - Upgrading from 1.1.1 to 1.2.0 adds configurable source presentation. Existing entries default to voice-friendly text without appended sources; re-enable **Include sources in response text** to preserve the v1.1 behavior.
 - Upgrading from 1.1.0 to 1.1.1 changes only HACS packaging and release automation; Home Assistant configuration and runtime behavior are unchanged.
 - Upgrading from 1.0.0 to 1.1.x preserves existing entries and leaves web search disabled until explicitly enabled.
