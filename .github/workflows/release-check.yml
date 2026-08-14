@@ -1,4 +1,4 @@
-name: Release check
+name: Build release
 
 on:
   push:
@@ -7,14 +7,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  release-check:
+  build-release:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
       - name: Validate version consistency
         shell: bash
         run: |
@@ -30,17 +31,91 @@ jobs:
           if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
             test "${GITHUB_REF_NAME#v}" = "$manifest_version"
           fi
-      - name: Validate metadata
+
+      - name: Validate repository metadata
+        shell: bash
         run: |
-          jq -e . hacs.json >/dev/null
+          set -euo pipefail
+          jq -e '.name == "ChatGPT OAuth"' hacs.json >/dev/null
+          jq -e '.content_in_root == false' hacs.json >/dev/null
+          jq -e '.zip_release == true' hacs.json >/dev/null
+          jq -e '.filename == "chatgpt_oauth.zip"' hacs.json >/dev/null
           jq -e . custom_components/openai_oauth_conversation/manifest.json >/dev/null
           jq -e . custom_components/openai_oauth_conversation/strings.json >/dev/null
           jq -e . custom_components/openai_oauth_conversation/translations/en.json >/dev/null
+          test -f README.md
+          test -f custom_components/openai_oauth_conversation/brand/icon.png
+          test "$(find custom_components -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1
+
+      - name: Build HACS and manual-install archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f chatgpt_oauth.zip chatgpt-oauth-manual.zip SHA256SUMS.txt
+
+          # HACS extracts this archive directly into
+          # /config/custom_components/openai_oauth_conversation, so the
+          # integration files must be at the ZIP root.
+          (
+            cd custom_components/openai_oauth_conversation
+            zip -q -r "$GITHUB_WORKSPACE/chatgpt_oauth.zip" . \
+              -x '__pycache__/*' '*.pyc' '*.pyo' '.DS_Store'
+          )
+
+          # This second archive is for users performing a manual drop-in
+          # installation from /config.
+          zip -q -r chatgpt-oauth-manual.zip \
+            custom_components/openai_oauth_conversation \
+            -x '*/__pycache__/*' '*.pyc' '*.pyo' '.DS_Store'
+
+          sha256sum chatgpt_oauth.zip chatgpt-oauth-manual.zip > SHA256SUMS.txt
+
+      - name: Validate HACS release archive layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import PurePosixPath
+          import json
+          import zipfile
+
+          with zipfile.ZipFile('chatgpt_oauth.zip') as archive:
+              names = [name for name in archive.namelist() if not name.endswith('/')]
+              required = {
+                  '__init__.py',
+                  'manifest.json',
+                  'config_flow.py',
+                  'strings.json',
+              }
+              missing = required.difference(names)
+              if missing:
+                  raise SystemExit(f'Missing required HACS files: {sorted(missing)}')
+              forbidden = [
+                  name for name in names
+                  if name.startswith('custom_components/')
+                  or name.startswith('openai_oauth_conversation/')
+                  or PurePosixPath(name).is_absolute()
+                  or '..' in PurePosixPath(name).parts
+              ]
+              if forbidden:
+                  raise SystemExit(f'Nested or unsafe HACS paths: {forbidden[:10]}')
+              manifest = json.loads(archive.read('manifest.json'))
+              if manifest.get('domain') != 'openai_oauth_conversation':
+                  raise SystemExit('Unexpected integration domain in release archive')
+
+          with zipfile.ZipFile('chatgpt-oauth-manual.zip') as archive:
+              required_path = (
+                  'custom_components/openai_oauth_conversation/manifest.json'
+              )
+              if required_path not in archive.namelist():
+                  raise SystemExit('Manual archive has the wrong directory layout')
+          PY
+
       - name: Reject generated or private files
         shell: bash
         run: |
           set -euo pipefail
-          if find . -type f \( -name '*.pyc' -o -name '.env' -o -name '.storage' \) | grep -q .; then
+          if find . -type f \( -name '*.pyc' -o -name '*.pyo' -o -name '.env' -o -name '.storage' \) | grep -q .; then
             echo "Generated or private files are present"
             exit 1
           fi
@@ -49,16 +124,35 @@ jobs:
             echo "A possible credential was found"
             exit 1
           fi
-      - name: Build source archive
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-oauth-release-assets
+          path: |
+            chatgpt_oauth.zip
+            chatgpt-oauth-manual.zip
+            SHA256SUMS.txt
+
+      - name: Create or update GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          version="$(jq -r '.version' custom_components/openai_oauth_conversation/manifest.json)"
-          git archive --format=zip --prefix="homeassistant-chatgpt-oauth-${version}/" \
-            -o "homeassistant-chatgpt-oauth-${version}.zip" HEAD
-          sha256sum "homeassistant-chatgpt-oauth-${version}.zip"
-      - name: Upload validated archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-source
-          path: homeassistant-chatgpt-oauth-*.zip
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" \
+              chatgpt_oauth.zip \
+              chatgpt-oauth-manual.zip \
+              SHA256SUMS.txt \
+              --clobber
+          else
+            gh release create "$tag" \
+              chatgpt_oauth.zip \
+              chatgpt-oauth-manual.zip \
+              SHA256SUMS.txt \
+              --title "ChatGPT OAuth ${tag#v}" \
+              --notes-file RELEASE_NOTES.md
+          fi

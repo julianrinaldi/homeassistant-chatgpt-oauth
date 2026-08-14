@@ -2,6 +2,21 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.1.1] - 2026-08-14
+
+### Fixed
+
+- Corrected the repository and GitHub release packaging for HACS.
+- Added a dedicated `chatgpt_oauth.zip` release asset whose integration files are located directly at the ZIP root, as required when HACS extracts a `zip_release` into the integration directory.
+- Added a separate `chatgpt-oauth-manual.zip` archive with the normal `custom_components/openai_oauth_conversation` path for manual installation.
+- Updated `hacs.json` to declare the exact HACS release filename and ZIP-release behavior.
+- Updated the tag workflow to validate both archive layouts and create or update the GitHub release automatically.
+- Removed the unnecessary `custom_components/__init__.py` repository file.
+
+### Compatibility
+
+- No integration runtime behavior, config-entry data, OAuth credentials, entities, actions, or automations change in this release.
+
 ## [1.1.0] - 2026-08-11
 
 ### Added
@@ -68,3 +83,5 @@ All notable user-facing changes are documented in this file.
 
 [1.0.0]: https://github.com/hebs/homeassistant-chatgpt-oauth/releases/tag/v1.0.0
 [1.1.0]: https://github.com/hebs/homeassistant-chatgpt-oauth/compare/v1.0.0...v1.1.0
+
+[1.1.1]: https://github.com/hebs/homeassistant-chatgpt-oauth/compare/v1.1.0...v1.1.1

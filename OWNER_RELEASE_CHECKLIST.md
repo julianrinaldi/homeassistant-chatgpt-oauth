@@ -1,76 +1,80 @@
-# Owner release checklist — ChatGPT OAuth 1.1.0
+# Owner release checklist — ChatGPT OAuth 1.1.1
 
-Use this checklist after reviewing the release candidate.
+## Repository root
 
-## Repository identity
+- [ ] Push the **contents** of the repository package to the repository root; do not commit an enclosing `homeassistant-chatgpt-oauth-*` directory.
+- [ ] Confirm these paths exist directly at the GitHub repository root:
+
+  ```text
+  README.md
+  hacs.json
+  custom_components/openai_oauth_conversation/manifest.json
+  ```
+
+- [ ] Confirm `custom_components` contains exactly one integration directory.
+- [ ] Keep the stable Home Assistant directory and domain named `openai_oauth_conversation`.
+
+## Repository metadata
 
 - [ ] Use the repository name `homeassistant-chatgpt-oauth`.
-- [ ] Keep the Home Assistant integration directory and domain named `openai_oauth_conversation`.
-- [ ] Set the repository description to: `Use ChatGPT OAuth in Home Assistant for Assist, AI Tasks, image generation, multimodal analysis, and sourced web search.`
+- [ ] Set the description to: `Use ChatGPT OAuth in Home Assistant for Assist, AI Tasks, image generation, multimodal analysis, and sourced web search.`
 - [ ] Add topics: `home-assistant`, `hacs`, `custom-integration`, `chatgpt`, `oauth`, `ai-task`, `assist`, `image-generation`, `structured-output`, and `web-search`.
-- [ ] Enable Issues.
-- [ ] Enable private vulnerability reporting.
-- [ ] Optionally enable Discussions for community support.
+- [ ] Enable Issues and private vulnerability reporting.
 
-## Branch protection and automation
+## Validation
 
-- [ ] Push the complete 1.1.0 repository to the default branch.
 - [ ] Confirm the HACS workflow passes.
 - [ ] Confirm the Hassfest workflow passes.
 - [ ] Confirm both Home Assistant test-matrix jobs pass.
 - [ ] Confirm Ruff formatting and linting pass.
-- [ ] Protect the default branch and require validation jobs before merge.
-- [ ] Review Dependabot pull-request permissions and cadence.
+- [ ] Confirm `hacs.json` contains:
 
-## Upgrade and regression smoke test
+  ```json
+  {
+    "name": "ChatGPT OAuth",
+    "content_in_root": false,
+    "zip_release": true,
+    "filename": "chatgpt_oauth.zip",
+    "hide_default_branch": false,
+    "homeassistant": "2026.4.0"
+  }
+  ```
 
-- [ ] Upgrade an existing 1.0.0 installation without deleting its Home Assistant config entry.
-- [ ] Confirm the existing conversation and AI Task entities retain their entity-registry identities.
-- [ ] Confirm the saved model, thinking level, prompt, and Home Assistant control setting migrate correctly.
-- [ ] Confirm web search defaults to Disabled on the migrated entry.
-- [ ] Test Assist, plain and structured `ai_task.generate_data`, image generation, image editing, and image/PDF analysis.
-- [ ] Confirm exactly ten image-generation attachments remain accepted and eleven are rejected before transmission.
-- [ ] Test a Home Assistant LLM tool call.
-- [ ] Confirm diagnostics contain no credentials, account ID, prompt, attachment, generated content, search history, or exact coordinates.
-- [ ] Confirm a near-expiry token refreshes without duplicate refresh requests.
+## Publish 1.1.1
 
-## Web-search smoke test
+- [ ] Commit the final source as `Release 1.1.1`.
+- [ ] Create and push the annotated tag `v1.1.1`.
+- [ ] Confirm the **Build release** workflow creates or updates the GitHub release.
+- [ ] Confirm the release contains these assets:
 
-For every account-visible model (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and `gpt-5.5` when available):
+  ```text
+  chatgpt_oauth.zip
+  chatgpt-oauth-manual.zip
+  SHA256SUMS.txt
+  ```
 
-- [ ] Test Automatic mode on a current-information prompt.
-- [ ] Test Required mode and confirm at least one visible clickable citation.
-- [ ] Test Disabled mode and confirm no web-search tool is sent.
-- [ ] Test Low, Medium, and High context where accepted by the account/backend.
-- [ ] Test live access enabled.
-- [ ] Test cache/index-only access and confirm it never silently becomes live.
-- [ ] Test country/time-zone location hints and confirm no coordinates are transmitted.
-- [ ] Test the dedicated Web search action with one allowed domain.
-- [ ] Test the dedicated Web search action with multiple allowed domains.
-- [ ] Confirm a rejected domain filter fails rather than broadening to unrestricted search.
-- [ ] Confirm the response includes `text`, `raw_text`, `citations`, `sources`, `searches`, `model`, `reasoning_effort`, `search_context_size`, and `live_access`.
-- [ ] Test web search and Home Assistant tools in the same Assist conversation.
-
-## Publish 1.1.0
-
-- [ ] Review `CHANGELOG.md`, `MIGRATION.md`, `RELEASE_NOTES.md`, `VALIDATION_REPORT.md`, and `SECURITY.md`.
-- [ ] Commit the final source as `Release 1.1.0`.
-- [ ] Create and push the annotated tag `v1.1.0`.
-- [ ] Confirm the tag-triggered release-check workflow passes.
-- [ ] Create the GitHub release using `RELEASE_NOTES.md`.
-- [ ] Attach the release source archive and SHA-256 checksums when desired.
+- [ ] Open `chatgpt_oauth.zip` and confirm `manifest.json` and `__init__.py` are at the ZIP root; it must not contain a `custom_components` directory.
+- [ ] Open `chatgpt-oauth-manual.zip` and confirm it contains `custom_components/openai_oauth_conversation/manifest.json`.
 - [ ] Mark the release as the latest stable release.
 
-## HACS publication
+## HACS smoke test
 
-- [ ] Verify the public repository, README, license, release, topics, and issue tracker are visible without authentication.
-- [ ] Install the published release through HACS as a custom repository on a clean Home Assistant instance.
-- [ ] Confirm the integration appears as `ChatGPT OAuth` after restart.
-- [ ] Open a HACS default-repository inclusion request only after all required checks pass.
-- [ ] Use the exact repository owner account required by HACS submission rules.
+- [ ] Add `https://github.com/hebs/homeassistant-chatgpt-oauth` to HACS as an **Integration** custom repository.
+- [ ] Install release `v1.1.1` on a clean Home Assistant instance.
+- [ ] Confirm HACS creates `/config/custom_components/openai_oauth_conversation/manifest.json` without an extra nested directory.
+- [ ] Restart Home Assistant and confirm **ChatGPT OAuth** is available under **Settings → Devices & services → Add integration**.
+- [ ] Upgrade an existing 1.1.0 HACS installation and confirm the existing config entry and entity IDs are retained.
 
-## Post-release
+## Runtime smoke test
 
-- [ ] Watch authentication, model availability, native web-search compatibility, citation rendering, image streaming, and structured-output issues closely.
-- [ ] Never request unredacted `.storage` files, OAuth callback URLs, tokens, private prompts, search history, or attachments in support tickets.
-- [ ] Publish backend-compatibility fixes as normal semantic-versioned releases without changing the stable Home Assistant domain.
+- [ ] Test Assist.
+- [ ] Test plain and structured `ai_task.generate_data`.
+- [ ] Test `ai_task.generate_image` with zero, one, and ten reference images.
+- [ ] Test image/PDF analysis and a Home Assistant LLM tool call.
+- [ ] Test Disabled, Automatic, and Required web-search modes with visible citations.
+- [ ] Confirm diagnostics contain no credentials, prompts, attachments, generated content, search history, or exact coordinates.
+
+## HACS default inclusion
+
+- [ ] Verify the repository is public and its README, license, release, topics, issue tracker, and workflows are visible without authentication.
+- [ ] Open a default-repository inclusion request only after HACS, Hassfest, tests, and the clean-install smoke test pass.
