@@ -21,6 +21,8 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, Ope
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
 - Opt-in Assist tools that delegate text and image work to the integration's AI Task entity, analyze exposed camera snapshots, and create or edit images.
+- Opt-in persistent reminders and delayed device on/off actions that survive restarts, appear on a Home Assistant calendar, and can be cancelled.
+- Explicitly selected, user-managed local TOML skill packs for reusable instructions, response formats, tool guidance, web-search policy, and tightly scoped household roles.
 - Per-profile selected Home Assistant scripts exposed as named, strongly typed tools with independently validated fields.
 - Restricted Jinja system prompts with privacy-gated user and room variables plus explicitly selected entity-state access.
 - Opt-in current-user, voice-satellite, device, room, and exposed room-entity context.
@@ -84,6 +86,8 @@ Until default-catalog inclusion is complete:
 
 The separate `chatgpt_oauth.zip` release asset is packaged specifically for HACS and contains the integration files at the ZIP root. Do not extract that asset directly into `/config`.
 
+Release archives and checksums are built and validated by a read-only GitHub Actions workflow. After that build passes, the resulting artifacts are downloaded and the GitHub release is published through the repository owner's authenticated `julianrinaldi` account. The workflow itself cannot create or modify a release, so new releases show the human maintainer rather than `github-actions[bot]` as their publisher.
+
 The internal integration domain remains `openai_oauth_conversation` for backward compatibility.
 
 ## Setup and authentication
@@ -94,16 +98,18 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 4. Enter a friendly name and select a model.
 5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
 6. Choose whether Assist may use this integration's AI Task entity and cameras or image entities exposed to Assist.
-7. Optionally select the exact Home Assistant scripts this assistant may run as named tools.
-8. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
-9. Set the maximum Home Assistant tool calls and combined tool time for each message.
-10. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
-11. Optionally select entities that a restricted Jinja system prompt may read, then customize the prompt.
-12. Choose a thinking level supported by the selected model.
-13. Open the displayed ChatGPT sign-in link.
-14. Complete sign-in in the browser.
-15. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
-16. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
+7. Optionally allow restart-safe reminders and delayed device on/off actions.
+8. Optionally select the exact Home Assistant scripts this assistant may run as named tools.
+9. Optionally select user-managed TOML packs already present under `/config/openai_oauth_conversation/skills`.
+10. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
+11. Set the maximum Home Assistant tool calls and combined tool time for each message.
+12. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
+13. Optionally select entities that a restricted Jinja system prompt may read, then customize the prompt.
+14. Choose a thinking level supported by the selected model.
+15. Open the displayed ChatGPT sign-in link.
+16. Complete sign-in in the browser.
+17. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
+18. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
 
 The callback URL contains a short-lived authorization code. Treat it as sensitive and do not post it in issues or logs.
 
@@ -236,6 +242,118 @@ Script selectors provide the strongest schemas. Number limits, select options, b
 The model cannot choose a different script, supply undeclared fields, or bypass the initiating user's script permission. The integration waits for the selected script to finish and returns its bounded, JSON-safe response to the conversation. If the script has no response, the tool still reports confirmed completion. Selected scripts remain available when general Home Assistant control is disabled because choosing each script is a separate, narrower permission grant.
 
 For best results, give the script a clear alias and description and configure selectors for every input. Avoid selecting scripts that open doors, disarm alarms, change locks, or perform similarly sensitive actions without their own explicit safety checks.
+
+### Local skill packs
+
+Local skills are reusable, declarative instruction packs managed entirely by the Home Assistant owner. Put each pack in a direct-child TOML file at:
+
+```text
+/config/openai_oauth_conversation/skills/<skill_id>.toml
+```
+
+The filename, without `.toml`, is the stable skill ID. It may contain lowercase letters, numbers, underscores, and hyphens, must start with a letter or number, and may be at most 64 characters. Adding a file does nothing by itself: open the assistant profile's **Reconfigure** screen and explicitly choose it under **Local skill packs**. Only a selected pack's name, instructions, output format, and applicable policy guidance are added to ChatGPT requests. Edits to an already selected valid file take effect on the next conversation request without restarting Home Assistant.
+
+This complete `kegerator_assistant.toml` example uses every supported field:
+
+```toml
+schema_version = 1
+name = "Kegerator Assistant"
+description = "Monitors the bar kegerator and guides routine maintenance."
+instructions = """
+Use measured values instead of guessing. Explain abnormal temperature or power
+readings plainly. Use only the selected maintenance scripts and scheduled-action
+tools that are actually available. Never bypass a script's own safety checks.
+"""
+suggested_tools = ["selected_scripts", "scheduled_actions"]
+output_format = """
+Lead with the current finding. Follow with at most two recommended actions and
+state clearly when a value is unavailable.
+"""
+web_search = "disabled"
+confirmation = "inherit"
+voice_max_words = 80
+allowed_entities = [
+  "sensor.kegerator_temperature",
+  "switch.kegerator",
+  "script.kegerator_maintenance",
+]
+allowed_areas = ["Bar"]
+```
+
+Supported settings are:
+
+| Setting | Meaning |
+|---|---|
+| `schema_version` | Required and currently `1`. |
+| `name` | Required human-readable pack name. |
+| `instructions` | Required instructions added literally to the selected assistant's prompt. Jinja-looking text is not rendered. |
+| `description` | Optional local human-readable explanation retained as validated pack metadata; it is not added to the model instructions. |
+| `suggested_tools` | Optional preferences for already available tool categories: `home_assistant`, `history`, `camera_analysis`, `image_generation`, `ai_task`, `selected_scripts`, or `scheduled_actions`. Suggestions never enable a tool or service. |
+| `output_format` | Optional response-structure guidance. |
+| `web_search` | `inherit`, `disabled`, or `required`. A pack may tighten the profile's policy, but cannot turn disabled search on, enable live access or location sharing, or remove domain restrictions. |
+| `confirmation` | `inherit`, `sensitive`, or `always`. `sensitive` and `always` withhold generic Assist control and every selected-script tool instead of pretending those APIs have a trusted confirmation gate. The scheduler remains eligible: `sensitive` confirms its defined sensitive targets, while `always` confirms every scheduled device action. The value is guidance only for other remaining tools. |
+| `voice_max_words` | Optional target from 20 through 500 words. The shortest selected-pack limit wins. |
+| `allowed_entities` | Optional entity IDs that activate hard scoped mode. |
+| `allowed_areas` | Optional area names or aliases that activate hard scoped mode and resolve to exposed, readable entities in those areas. |
+
+Multiple selected packs combine in their selected order. Tool suggestions and scopes are unioned and deduplicated. `disabled` is the strictest web-search policy, and `always` is the strictest confirmation guidance.
+
+#### Hard scoped mode
+
+If any selected pack declares `allowed_entities` or `allowed_areas`, those values form a real, fail-closed tool boundary for that request—not merely a sentence asking the model to stay in scope. Home Assistant currently provides no public way for an integration to apply a per-request entity filter to its generic Assist API. ChatGPT OAuth therefore removes generic Home Assistant Assist tools, history tools, AI Task tools, and camera/image tools while that scoped pack is active.
+
+With `confirmation = "inherit"`, only selected-script tools whose fixed script entity is inside the combined resolved scope and the scheduled-action tools remain eligible. With `confirmation = "sensitive"` or `confirmation = "always"`, selected scripts are also withheld and only the separately enforced scheduler remains available for Home Assistant mutations. Normal Assist exposure and initiating-user permissions still apply. If the configured scope resolves to no accessible entities, no general Home Assistant tools are exposed. A script can act on entities beyond its own script entity, so its internal sequence must enforce any additional scope or safety rules.
+
+This behavior makes selected, strongly typed Home Assistant scripts the preferred way to provide controlled workflows to a scoped skill. Packs without either scope field provide guidance only and do not narrow the profile's normal tools.
+
+Hard scoped mode narrows Home Assistant tools; it does not itself disable hosted web search. Use `web_search = "disabled"` in the pack when the scoped role must not retrieve external information. The profile's live-access, domain, source-display, and location-sharing limits remain the privacy ceiling in every mode.
+
+The current request's opt-in room-entity context and restricted-Jinja entity values are also intersected with the resolved scope. This is still a tool and integration-supplied context boundary, not a redaction engine: text that the user or assistant already wrote in the visible conversation history is not rewritten. Start a new Home Assistant conversation when switching an existing conversation to a role with a narrower information policy.
+
+#### File and privacy boundaries
+
+The loader accepts only direct, regular `.toml` files with the documented keys. It rejects symlinked roots or files, nested packs, unknown keys, invalid UTF-8 or TOML, and unsupported schemas. The strict schema has no way to define tools, arbitrary services, includes, downloads, remote imports, secret or environment-variable expansion, or Python or shell execution. Skill files and their instruction text are never executed: code-looking text inside `instructions` remains literal prompt text and is transmitted as such. Do not put credentials, tokens, addresses, or other secrets in a pack, and review every selected instruction as carefully as any other system prompt.
+
+Loading is bounded to 32 packs, 256 scanned directory entries, 64 KiB per file, and 512 KiB total. A profile may select at most 8 packs. Each pack allows up to 12,000 instruction characters, 2,000 output-format characters, 20 tool suggestions, 100 entity IDs, and 20 areas. The final composed local-skill section is capped at 24,000 characters; a whole pack that would exceed the aggregate pack budget is skipped rather than partially applied.
+
+Skill IDs, names, file paths, instructions, output formats, and scopes are excluded from diagnostics. Diagnostics report only bounded catalog and selection counts. If any explicitly selected pack is missing, invalid, or skipped because the aggregate budget is exceeded, it stops applying and the request enters safe mode: all Home Assistant tools and web search are withheld until every selected pack is available, valid, and within the active limits. Missing or invalid selections appear as unavailable in the next Reconfigure form; aggregate-budget skips are reported only as ID-free counts in diagnostics. Reconfigure the profile to fix or remove the affected selection. The integration does not silently restore the profile's broader tool or web access.
+
+Home Assistant does not provide a generic trusted two-turn confirmation API. When a selected pack requests `confirmation = "sensitive"` or `confirmation = "always"`, ChatGPT OAuth therefore withholds generic Assist control and all selected-script tools rather than relying on model wording. The scheduler described below is the only remaining mutation path: it always enforces two turns for its sensitive targets, and `always` extends that enforcement to every scheduled device action. Confirmation text remains guidance only for other non-scheduler tools, so their own safety behavior still matters.
+
+### Persistent reminders and scheduled actions
+
+Enable **Allow reminders and scheduled actions** for an assistant profile to let it create a deliberately narrow set of future work. The setting is disabled by default. Outside local-skill safe mode, reminder creation and the applicable management tools are available whenever this setting is on. The two device tools are added only when **Enable Home Assistant control** is also on and any active hard scope resolves to at least one accessible entity. The complete tool set is:
+
+- `ScheduleReminder`
+- `ScheduleHassTurnOn`
+- `ScheduleHassTurnOff`
+- `ListScheduledActions`
+- `CancelScheduledAction`
+- `ConfirmScheduledAction`
+
+This supports requests such as “Remind me in half an hour to check the keg,” “Turn the fan off in 20 minutes,” and “Switch the diffuser back on at 6:00.” It does not schedule arbitrary service calls, scripts, automations, alarm changes, toggles, camera actions, or update installations. A future action may contain up to 40 fixed targets, each Home Assistant user may have up to 25 active items, and execution must be between 5 seconds and one year in the future. A sensitive device action must be more than 15 seconds away so the later confirmation can occur.
+
+The integration resolves a spoken entity, area, or floor name immediately and stores the resulting fixed targets. Every device target must be exposed to Assist and controllable by the initiating user when the item is created. Those permissions, exposure, target existence, service availability, the profile's scheduled-action and Home Assistant control settings, and any current local-skill scope are checked again when it becomes due; scheduling is not a way to preserve access after permission is removed or a feature is disabled. When a hard-scoped local skill is active, scheduled device targets must be inside that resolved scope at creation and execution. Narrowing, invalidating, or removing a scope prevents an affected stored action from running.
+
+Only explicit on and off semantics are supported:
+
+| Entity | Scheduled **on** | Scheduled **off** |
+|---|---|---|
+| Normal supported entity | `turn_on` | `turn_off` |
+| Cover | Open | Close |
+| Lock | Lock | Unlock |
+| Valve | Open | Close |
+| Button or input button | Press once | Not supported |
+
+Locks, valves, buttons, input buttons, sirens, and door, garage, gate, or window covers are treated as sensitive. The first request creates only a five-minute `awaiting_confirmation` item; it does not schedule the device operation. To approve it, the same Home Assistant user must send a later message to the same assistant profile and same nonempty Home Assistant conversation whose entire content is `Confirm scheduled action ABCD1234EFGH`, using the action's returned 12-character reference. Matching is case-insensitive and permits surrounding whitespace plus one optional final `.`, `!`, or `?`, but no other words. The later request must also have a new Home Assistant Context and arrive before both the five-minute confirmation deadline and the scheduled run time. A model-generated `ConfirmScheduledAction` tool call cannot authorize anything by itself; that tool is exposed only after the raw user message matches the reserved phrase and only for its matching reference. Confirmation in the original request, another conversation or profile, or by another household member cannot approve the action.
+
+Each user can list or cancel only that user's active items for the current assistant profile through Assist. During a hard-scoped request, Assist can list, cancel, or confirm only device records whose complete fixed target set remains inside the current scope; reminders and other records are hidden from those management tools. A record created under a scope also stays hidden if that scope is later removed. Items for the account still appear in the native **Scheduled actions** calendar, normally as `calendar.scheduled_actions` when Home Assistant does not need to add a suffix. The calendar is intentionally not an action editor: it supports deletion only and remains the local way to remove work hidden by a changed skill scope. Deleting a pending or awaiting-confirmation event cancels and removes it, while an action already executing cannot be cancelled or deleted. Completed history may also be deleted. Completed, failed, missed, expired, and cancelled records are otherwise retained for seven days; oldest terminal records are pruned when the store would exceed 200 records without discarding active work.
+
+Items are stored in Home Assistant's private persistent storage and restored after a restart. Before restart recovery, every persisted record is revalidated against the scheduler's schema and fixed-operation allowlist; a tampered or invalid record is discarded rather than executed. The scheduler maintains only the nearest-deadline timer. A device action that is more than 15 minutes overdue is marked missed instead of running unexpectedly; a reminder has a 24-hour delivery grace period. Execution is at most once: if Home Assistant restarts while a record is marked executing, that record is marked interrupted and is never retried automatically.
+
+When a reminder becomes due, ChatGPT OAuth creates a Home Assistant persistent notification using the requested title and message. Completion of an actual due reminder or device execution fires `chatgpt_oauth.scheduled_action_finished`; cancellation, confirmation expiry, and an overdue item becoming missed do not fire it. Calendar entries show the reminder title, status, creator display name, action reference, and display target names as applicable, but not the reminder body. Conversation tool-list results, diagnostics, and the completion event's data payload omit Home Assistant entity IDs, user IDs, reminder bodies, and stored tool arguments. Home Assistant's standard local event Context retains the creator's user ID and the creation request's parent Context ID for local auditing and traceability; those Context fields are not event data or model output, and firing the event does not send them to ChatGPT. The reminder body remains only in Home Assistant's private storage and its due persistent notification. Prompts and assistant responses are never copied wholesale into scheduled records.
+
+The calendar is shared according to normal Home Assistant entity permissions. Anyone allowed to read it can see scheduled titles, target display names, statuses, references, and creator display names; anyone allowed to control/delete its events can remove non-executing records. Restrict access to this calendar entity if those human-readable details are sensitive in your household.
 
 ### Restricted Jinja system prompts
 
@@ -513,7 +631,7 @@ The response includes `text`, `response_text`, `raw_text`, `cited_text`, `citati
 
 Open **Settings → Devices & services → ChatGPT OAuth** and use:
 
-- **Reconfigure** to change the entry name, model, Home Assistant control access, AI Task and exposed-camera access, system prompt, thinking level, source-display behavior, or other web-search defaults.
+- **Reconfigure** to change the entry name, model, Home Assistant control access, AI Task and exposed-camera access, persistent scheduled actions, selected scripts, local skill packs, system prompt, thinking level, source-display behavior, or other web-search defaults.
 - **Reauthenticate** when Home Assistant reports that the OAuth session has expired or been revoked.
 - **Download diagnostics** when filing a bug report. Diagnostics exclude tokens, account identifiers, prompts, attachments, conversation text, search queries, source contents, and generated output.
 
@@ -528,6 +646,10 @@ Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queri
 - Only expose the Home Assistant entities that the Assist agent genuinely needs.
 - AI Task camera tools can access only exposed camera/image entities, use one on-demand still per analysis call, and honor the initiating user's entity permissions.
 - Selected-script tools can invoke only scripts explicitly chosen for that assistant, reject undeclared fields, honor the initiating user's control permission, and exclude script IDs and arguments from diagnostics.
+- Persistent scheduled actions are disabled by default, allow only reminders and explicit device on/off operations, recheck permissions at execution, and require the same user to send the reserved whole-message phrase `Confirm scheduled action <12-character reference>` in a later turn for sensitive targets. A tool call alone cannot grant confirmation.
+- Calendar entries, scheduler tool results, diagnostics, and scheduler event data omit scheduled entity IDs, user IDs, reminder bodies, and stored arguments. The standard local Home Assistant event Context retains its creator user and parent Context for auditing. Reminder content remains only in Home Assistant's private storage and its due persistent notification.
+- Local skill packs are loaded only from explicitly selected, direct-child TOML files. Their schema cannot download content, execute code, define arbitrary services, reveal Home Assistant secrets, or expand profile permissions; skill files and literal instruction text are never executed, but selected instructions are sent to ChatGPT and must not contain secrets. A missing, invalid, or aggregate-budget-skipped selected pack activates safe mode, withholding all Home Assistant tools and web search until fixed.
+- A local skill with an entity or area scope disables generic Assist, history, AI Task, and media APIs for that request so the scope fails closed. In-scope selected scripts remain only with `confirmation = "inherit"`; the separately enforced scheduler remains available when enabled.
 - Restricted prompt templates can read only explicitly selected entities that the initiating user may read; prompts and selected entity IDs remain excluded from diagnostics.
 - Local file access is restricted to Home Assistant's allowed paths.
 - Remote image downloads are limited to HTTP/HTTPS, bounded redirects, an image content type, and a 20 MB response limit.
@@ -542,6 +664,8 @@ Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queri
 - Cache/index-only behavior depends on backend support. Compatibility fallback to the legacy preview tool occurs only when live access is allowed and no domain allowlist is present; the integration never silently removes an explicit cache-only or domain-filter restriction.
 - Image generation may take several minutes and can time out under heavy service load.
 - `Ultra` does not provide the Codex CLI's client-side subagent orchestration.
+- Scheduled actions are limited to reminders and explicit on/off operations; use a selected Home Assistant script or automation when a future workflow needs richer logic or its own confirmation and safety checks.
+- Home Assistant has no generic trusted confirmation API. A skill pack requesting `sensitive` or `always` confirmation therefore removes generic Assist control and selected scripts; it is only guidance for other remaining tools. Scheduled actions enforce their own later-turn, exact-phrase flow, with `always` applying it to every scheduled device action.
 - The integration does not provide code interpreter, speech-to-text, or text-to-speech services.
 
 ## Troubleshooting
@@ -573,6 +697,24 @@ Open **Settings → Devices & services → Entities**, filter by **ChatGPT OAuth
 - Confirm the script is enabled, loaded, and runnable by the Home Assistant user starting the conversation.
 - Add selectors and descriptions to the script's fields so the model receives clear, typed inputs.
 - Restart Home Assistant after updating the integration itself; ordinary script edits do not require an integration restart.
+
+### A local skill pack does not appear or apply
+
+- Confirm the file is a direct-child regular file under `/config/openai_oauth_conversation/skills` and has a lowercase `.toml` filename with a valid skill ID.
+- Confirm it uses UTF-8, `schema_version = 1`, all required fields, and only the documented keys and values. Symlinks and nested files are rejected. The schema cannot define includes or executable behavior; text that merely looks like code inside `instructions` is treated as literal prompt text and is never run.
+- Reopen the relevant assistant profile's **Reconfigure** screen and explicitly select it under **Local skill packs**. Merely creating the file does not enable it.
+- An edited selected pack applies on the next conversation request. A removed or invalid pack stops applying and appears as unavailable when Reconfigure is opened again; an aggregate-budget-skipped pack remains selected and is reported through the ID-free skipped count in diagnostics. In either case, safe mode withholds all Home Assistant tools and web search instead of falling back to broader profile access.
+- If an entity or area scope is present, generic Home Assistant, history, AI Task, and media tools disappear by design. Add the required selected-script entity to the scope or remove the scope only if the wider profile permissions are intended.
+- If `confirmation` is `sensitive` or `always`, generic Assist control and all selected-script tools are withheld by design. Enable scheduled actions for the enforced future-action path, or use `inherit` only when the selected scripts provide their own required safety checks.
+
+### A scheduled action does not run
+
+- Confirm **Allow reminders and scheduled actions** is enabled for the assistant profile.
+- Confirm the scheduled time is at least 5 seconds and no more than one year away, and that the user has fewer than 25 active scheduled items. Sensitive device actions need more than 15 seconds for confirmation.
+- For a device action, also enable **Home Assistant control** and confirm every target is available, exposed to Assist, permitted for the creating user, and inside any active local-skill scope when created. Availability, exposure, permission, profile settings, current scope, and service support are checked again when the item becomes due; a narrowed, missing, invalid, or removed scope blocks affected work.
+- Sensitive targets remain pending until the same user sends `Confirm scheduled action <12-character reference>` as the whole message in a later turn of the same nonempty Home Assistant conversation and assistant profile. The match is case-insensitive, allows only surrounding whitespace and one optional final punctuation mark (`.`, `!`, or `?`), and expires after five minutes. Extra words, a reused request Context, or a different profile, conversation, or user cannot confirm it; neither can an ungrounded tool call.
+- Ask Assist to list scheduled actions. An overdue device action is marked missed after 15 minutes rather than running unexpectedly, and an action interrupted during execution is not retried.
+- Check Home Assistant persistent notifications for reminders and the ChatGPT OAuth calendar for item status.
 
 ### A system-prompt template shows `unknown`
 
@@ -621,6 +763,7 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
+- Upgrading from 1.7.1 to 1.8.0 preserves existing profiles and adds persistent scheduled actions as disabled and local skill selections as empty. No new tool, device, file, web-search, or prompt access is granted until explicitly configured.
 - Upgrading from 1.5.0 to 1.6.0 preserves existing settings and adds AI Task/camera tools as a disabled-by-default privacy option.
 - Upgrading from 1.4.0 to 1.5.0 preserves existing settings, keeps all user and room context disabled, and adds five-call and 60-second tool-safety defaults.
 - Upgrading from 1.2.0 to 1.2.1 changes only repository ownership metadata and public release packaging; Home Assistant configuration and runtime behavior are unchanged.
@@ -632,6 +775,8 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 See [MIGRATION.md](MIGRATION.md) for details.
 
 ## Removal
+
+Review and cancel any scheduled items before removing the integration. Removing the config entry deletes its private scheduled-action store and **Scheduled actions** calendar; pending device work and reminders will not run afterward.
 
 1. Remove the integration entry from **Settings → Devices & services**.
 2. Remove the integration from HACS, or delete `/config/custom_components/openai_oauth_conversation` for a manual installation.

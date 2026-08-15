@@ -22,6 +22,16 @@ from .const import (
     SUBENTRY_TYPE_ASSISTANT,
 )
 from .exceptions import ChatGPTOAuthError
+from .llm_api import LLMAPISelection
+from .local_skill_runtime import async_resolve_local_skill_scope
+from .local_skills import (
+    CONFIRMATION_ALWAYS,
+    CONFIRMATION_INHERIT,
+    apply_local_skill_web_search_policy,
+    async_load_local_skill_catalog,
+    compose_local_skill_instructions,
+    resolve_local_skill_policy,
+)
 from .memory import (
     ConversationMemoryManager,
     chat_log_input_items,
@@ -33,6 +43,11 @@ from .request_context import (
     ResolvedRequestContext,
     async_resolve_request_context,
     combine_request_context,
+)
+from .scheduled_actions import (
+    create_scheduled_actions_api,
+    get_scheduled_action_manager,
+    parse_scheduled_action_confirmation,
 )
 from .script_tools import create_selected_scripts_api
 
@@ -82,6 +97,7 @@ class ChatGPTOAuthConversationEntity(
             conversation.ConversationEntityFeature.CONTROL
             if settings.enable_home_assistant_control
             or settings.selected_script_entities
+            or settings.enable_scheduled_actions
             else conversation.ConversationEntityFeature(0)
         )
         # Preserve the original default unique ID and existing entity ID. New
@@ -120,7 +136,9 @@ class ChatGPTOAuthConversationEntity(
             "home_assistant_control": settings.enable_home_assistant_control,
             "history_tools": settings.enable_history_tools,
             "ai_task_camera_tools": settings.enable_ai_media_tools,
+            "scheduled_actions": settings.enable_scheduled_actions,
             "selected_script_tools": len(settings.selected_script_entities),
+            "enabled_local_skills": len(settings.enabled_local_skill_ids),
             "prompt_template_selected_entities": len(settings.prompt_template_entities),
             "user_context": settings.include_user_context,
             "satellite_room_context": settings.include_satellite_room_context,
@@ -159,29 +177,92 @@ class ChatGPTOAuthConversationEntity(
         conversation_result = None
         error_type: str | None = None
         try:
+            llm_context = user_input.as_llm_context(DOMAIN)
+            skill_catalog = await async_load_local_skill_catalog(self.hass)
+            skill_policy = resolve_local_skill_policy(
+                skill_catalog,
+                settings.enabled_local_skill_ids,
+            )
+            skill_safe_mode = bool(
+                skill_policy.missing_skill_ids or skill_policy.skipped_skill_ids
+            )
+            skill_scope = await async_resolve_local_skill_scope(
+                self.hass,
+                skill_policy,
+                llm_context,
+            )
+            effective_web_search = apply_local_skill_web_search_policy(
+                settings.web_search,
+                skill_policy,
+            )
             request_context = await async_resolve_request_context(
                 self.hass,
                 user_input,
                 settings,
+                allowed_entity_ids=skill_scope,
             )
+            prompt_entity_ids = settings.prompt_template_entities
+            if skill_scope is not None:
+                prompt_entity_ids = tuple(
+                    entity_id
+                    for entity_id in prompt_entity_ids
+                    if entity_id in skill_scope
+                )
             rendered_prompt = await async_render_system_prompt(
                 self.hass,
                 source=settings.prompt,
                 request_context=request_context,
                 context=user_input.context,
-                selected_entity_ids=settings.prompt_template_entities,
+                selected_entity_ids=prompt_entity_ids,
             )
-            llm_api_selection = _llm_api_selection(settings)
-            if settings.selected_script_entities:
+            llm_api_selection = _llm_api_selection(
+                settings,
+                scoped=skill_scope is not None,
+                allow_immediate_home_actions=(
+                    skill_policy.confirmation_policy == CONFIRMATION_INHERIT
+                ),
+            )
+            if (
+                settings.selected_script_entities
+                and skill_policy.confirmation_policy == CONFIRMATION_INHERIT
+            ):
                 llm_api_selection = create_selected_scripts_api(
                     self.hass,
                     profile_id=settings.profile_id,
                     script_entity_ids=settings.selected_script_entities,
                     base_api_ids=llm_api_selection,
+                    allowed_entity_ids=skill_scope,
+                )
+            if settings.enable_scheduled_actions and not skill_safe_mode:
+                manager = get_scheduled_action_manager(self.hass, self.entry.entry_id)
+                if manager is None:
+                    raise HomeAssistantError(
+                        "The persistent scheduled-action manager is not loaded"
+                    )
+                llm_api_selection = create_scheduled_actions_api(
+                    self.hass,
+                    manager=manager,
+                    profile_id=settings.profile_id,
+                    conversation_id=(
+                        user_input.conversation_id
+                        or getattr(chat_log, "conversation_id", None)
+                    ),
+                    confirmation_action_id=parse_scheduled_action_confirmation(
+                        user_input.text
+                    ),
+                    base_api=llm_api_selection,
+                    allow_device_actions=(
+                        settings.enable_home_assistant_control
+                        and (skill_scope is None or bool(skill_scope))
+                    ),
+                    allowed_entity_ids=skill_scope,
+                    require_confirmation=(
+                        skill_policy.confirmation_policy == CONFIRMATION_ALWAYS
+                    ),
                 )
             try:
                 await chat_log.async_provide_llm_data(
-                    user_input.as_llm_context(DOMAIN),
+                    llm_context,
                     llm_api_selection,
                     rendered_prompt,
                     user_input.extra_system_prompt,
@@ -192,6 +273,18 @@ class ChatGPTOAuthConversationEntity(
                 return conversation_result
 
             instructions = _chat_log_instructions(chat_log) or rendered_prompt
+            skill_instructions = compose_local_skill_instructions(
+                skill_policy,
+                available_tool_names=(tool.name for tool in chat_log.llm_api.tools)
+                if chat_log.llm_api
+                else (),
+            )
+            if skill_instructions:
+                instructions = (
+                    f"{instructions.rstrip()}\n\n{skill_instructions}"
+                    if instructions
+                    else skill_instructions
+                )
             prepared = await self._memory_manager.async_prepare(
                 chat_log=chat_log,
                 client=client,
@@ -211,7 +304,7 @@ class ChatGPTOAuthConversationEntity(
                     instructions=instructions,
                     input_items=prepared.input_items,
                     llm_api=chat_log.llm_api,
-                    web_search=settings.web_search,
+                    web_search=effective_web_search,
                     max_tool_calls=settings.max_tool_calls,
                     max_tool_time=settings.max_tool_time,
                 )
@@ -221,7 +314,7 @@ class ChatGPTOAuthConversationEntity(
                     reasoning_effort=settings.reasoning_effort,
                     instructions=instructions,
                     input_items=prepared.input_items,
-                    web_search=settings.web_search,
+                    web_search=effective_web_search,
                 )
 
             error_type = result.tool_error_type
@@ -238,7 +331,7 @@ class ChatGPTOAuthConversationEntity(
             _apply_web_search_presentation(
                 conversation_result,
                 result,
-                include_sources=settings.web_search.include_sources,
+                include_sources=effective_web_search.include_sources,
             )
             return conversation_result
         except ChatGPTOAuthError as err:
@@ -275,10 +368,18 @@ OpenAIOAuthConversationEntity = ChatGPTOAuthConversationEntity
 
 def _llm_api_selection(
     settings: AssistantProfileSettings,
-) -> str | list[str] | None:
+    *,
+    scoped: bool = False,
+    allow_immediate_home_actions: bool = True,
+) -> LLMAPISelection:
     """Return the Home Assistant LLM APIs enabled for one profile."""
+    # Home Assistant's built-in merged Assist API has no public per-request
+    # entity-scope override. A scoped local skill therefore fails closed: only
+    # separately filtered selected-script and scheduling wrappers are added.
+    if scoped:
+        return None
     api_ids: list[str] = []
-    if settings.enable_home_assistant_control:
+    if settings.enable_home_assistant_control and allow_immediate_home_actions:
         api_ids.append(LLM_HASS_API)
     if settings.enable_ai_media_tools:
         api_ids.append(AI_MEDIA_LLM_API_ID)

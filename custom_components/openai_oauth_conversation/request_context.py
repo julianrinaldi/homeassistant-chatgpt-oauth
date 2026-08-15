@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any
 
+from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components import conversation
 from homeassistant.components.homeassistant import async_should_expose
 from homeassistant.const import (
@@ -82,6 +83,8 @@ async def async_resolve_request_context(
     hass: HomeAssistant,
     user_input: conversation.ConversationInput,
     settings: AssistantProfileSettings,
+    *,
+    allowed_entity_ids: frozenset[str] | None = None,
 ) -> ResolvedRequestContext:
     """Resolve the current user and satellite location under opt-in settings."""
     entity_registry = er.async_get(hass)
@@ -114,13 +117,11 @@ async def async_resolve_request_context(
     include_room = (
         settings.include_satellite_room_context or settings.include_room_entities
     )
+    user_id = getattr(user_input.context, "user_id", None)
+    user = await hass.auth.async_get_user(user_id) if user_id else None
     user_name: str | None = None
-    if settings.include_user_context:
-        user_id = getattr(user_input.context, "user_id", None)
-        if user_id:
-            user = await hass.auth.async_get_user(user_id)
-            if user is not None:
-                user_name = _clean_label(user.name)
+    if settings.include_user_context and user is not None:
+        user_name = _clean_label(user.name)
 
     satellite_name: str | None = None
     device_name: str | None = None
@@ -141,6 +142,8 @@ async def async_resolve_request_context(
                 entity_registry,
                 device_registry,
                 area_id,
+                user=user,
+                allowed_entity_ids=allowed_entity_ids,
             )
 
     return ResolvedRequestContext(
@@ -191,12 +194,24 @@ def _room_entities(
     entity_registry: er.EntityRegistry,
     device_registry: dr.DeviceRegistry,
     area_id: str,
+    *,
+    user: Any,
+    allowed_entity_ids: frozenset[str] | None,
 ) -> tuple[dict[str, str], ...]:
     """Return bounded, exposed, relevant entity labels and current states."""
+    if user is None:
+        return ()
     entities: list[dict[str, str]] = []
     for entry in entity_registry.entities.values():
         domain = entry.entity_id.partition(".")[0]
         if domain not in ROOM_ENTITY_DOMAINS or entry.disabled_by is not None:
+            continue
+        if allowed_entity_ids is not None and entry.entity_id not in allowed_entity_ids:
+            continue
+        if not user.permissions.check_entity(
+            entry.entity_id,
+            POLICY_READ,
+        ):
             continue
         effective_area_id = entry.area_id
         if effective_area_id is None and entry.device_id:

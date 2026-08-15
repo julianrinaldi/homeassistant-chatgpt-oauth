@@ -22,6 +22,7 @@ from .const import (
     MAX_SCRIPT_TOOL_RESPONSE_CHARACTERS,
     MAX_SCRIPT_TOOL_TEXT_FIELD_CHARACTERS,
 )
+from .llm_api import LLMAPISelection, async_resolve_llm_api
 
 
 class SelectedScriptsAPI(llm.API):
@@ -33,7 +34,8 @@ class SelectedScriptsAPI(llm.API):
         hass: HomeAssistant,
         profile_id: str,
         script_entity_ids: tuple[str, ...],
-        base_api_ids: str | list[str] | None,
+        base_api_ids: LLMAPISelection,
+        allowed_entity_ids: frozenset[str] | None = None,
     ) -> None:
         super().__init__(
             hass=hass,
@@ -42,24 +44,41 @@ class SelectedScriptsAPI(llm.API):
         )
         self.script_entity_ids = script_entity_ids
         self.base_api_ids = base_api_ids
+        self.allowed_entity_ids = allowed_entity_ids
 
     async def async_get_api_instance(
         self,
         llm_context: llm.LLMContext,
     ) -> llm.APIInstance:
         """Return permitted, currently loaded script tools for this request."""
-        base_instance = (
-            await llm.async_get_api(self.hass, self.base_api_ids, llm_context)
-            if self.base_api_ids
-            else None
+        base_instance = await async_resolve_llm_api(
+            self.hass,
+            self.base_api_ids,
+            llm_context,
         )
+        selected_entity_ids = self.script_entity_ids
+        if self.allowed_entity_ids is not None:
+            selected_entity_ids = tuple(
+                entity_id
+                for entity_id in selected_entity_ids
+                if entity_id in self.allowed_entity_ids
+            )
         script_tools = await _async_selected_script_tools(
             self.hass,
             llm_context,
-            self.script_entity_ids,
+            selected_entity_ids,
         )
 
-        tools = list(base_instance.tools) if base_instance else []
+        selected_tool_names = {tool.name for tool in script_tools}
+        tools = (
+            [
+                tool
+                for tool in base_instance.tools
+                if tool.name not in selected_tool_names
+            ]
+            if base_instance
+            else []
+        )
         tools.extend(script_tools)
         prompt_parts = [base_instance.api_prompt] if base_instance else []
         if script_tools:
@@ -92,7 +111,8 @@ def create_selected_scripts_api(
     *,
     profile_id: str,
     script_entity_ids: tuple[str, ...],
-    base_api_ids: str | list[str] | None,
+    base_api_ids: LLMAPISelection,
+    allowed_entity_ids: frozenset[str] | None = None,
 ) -> SelectedScriptsAPI:
     """Create an unregistered, profile-scoped selected-script API."""
     return SelectedScriptsAPI(
@@ -100,6 +120,7 @@ def create_selected_scripts_api(
         profile_id=profile_id,
         script_entity_ids=script_entity_ids,
         base_api_ids=base_api_ids,
+        allowed_entity_ids=allowed_entity_ids,
     )
 
 

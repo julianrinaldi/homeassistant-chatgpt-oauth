@@ -2,6 +2,52 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.8.0] - 2026-08-15
+
+### Added
+
+- An opt-in **Allow reminders and scheduled actions** setting for each assistant profile, with restart-safe `ScheduleReminder`, `ListScheduledActions`, `CancelScheduledAction`, and `ConfirmScheduledAction` tools. `ScheduleHassTurnOn` and `ScheduleHassTurnOff` are also available when Home Assistant control is enabled and the active scope permits device targets.
+- A native **Scheduled actions** Home Assistant calendar that displays pending and historical items and supports deletion to cancel pending work or remove history; it intentionally cannot create or edit arbitrary actions.
+- Due reminders delivered as Home Assistant persistent notifications and a privacy-safe `chatgpt_oauth.scheduled_action_finished` event after actual due reminder or device execution.
+- Explicitly selected, user-managed TOML skill packs loaded from `/config/openai_oauth_conversation/skills`, with reusable instructions, output-format guidance, bounded voice length, tool suggestions, web-search policy, confirmation guidance, and optional entity or area scopes.
+- Per-request loading for already selected local packs, so reviewed file edits apply on the next conversation without restarting Home Assistant.
+
+### Scheduled-action reliability and safety
+
+- Scheduling is limited to reminders and explicit device on/off semantics. It cannot queue arbitrary services, scripts, automations, alarm changes, future toggles, camera actions, or update installations.
+- Spoken entity, area, and floor targets resolve immediately to at most 40 fixed entities. Local-skill scope is enforced at creation and re-resolved at execution; narrowing, invalidating, or removing a scope blocks affected work. Target existence, Assist exposure, creating-user permissions, current profile control settings, and fixed service availability are also checked again before execution.
+- Each Home Assistant user is limited to 25 active items, with a scheduling window from 5 seconds through one year.
+- Locks, valves, buttons, input buttons, sirens, and door, garage, gate, or window covers require the same Home Assistant user to send `Confirm scheduled action <12-character reference>` as the entire later message to the same profile and same nonempty conversation. Matching is case-insensitive with only surrounding whitespace and one optional terminal `.`, `!`, or `?`; the request must have a new Home Assistant Context and arrive within five minutes. The tool is not exposed without that raw phrase, so a model tool call alone cannot authorize the action.
+- Scheduled items persist across restarts and use one nearest-deadline timer. Device operations more than 15 minutes overdue are marked missed; reminders have a 24-hour delivery grace period.
+- Execution is at most once. An item found in the executing state after a restart is marked interrupted instead of being retried and potentially repeating a device action.
+- Persisted records are revalidated against the scheduler's schema and fixed-operation allowlist before restart recovery. Tampered or invalid records are discarded rather than executed.
+- Pending items can be cancelled through Assist or calendar deletion, but an operation already executing cannot be cancelled. Terminal history is retained for seven days, with oldest terminal records pruned when the store would exceed 200 records without discarding active work.
+
+### Local-skill boundaries
+
+- A pack file has no effect until explicitly selected for an assistant profile; only selected pack prompt content and applicable policy guidance are transmitted to ChatGPT.
+- The strict schema accepts only documented declarative TOML fields and rejects symlinked roots or files, nested packs, unknown keys, unsupported schema versions, and invalid UTF-8/TOML. It cannot define includes, secret expansion, downloads, remote imports, arbitrary tools or services, or Python or shell execution. Skill files and instruction text are never executed; code-looking instruction text remains literal prompt content.
+- A missing, invalid, or aggregate-budget-skipped selected pack activates safe mode. All Home Assistant tools and web search remain withheld until every selected pack is available, valid, and within the active limits instead of silently returning broader profile access.
+- Tool suggestions can prefer only tools already enabled by the profile and never enable a capability, service, live web access, precise location, or broader Home Assistant permission.
+- Skill web policy can inherit or narrow the profile's search policy. A `required` pack cannot turn disabled search on, while `disabled` always keeps it off.
+- Entity or area scopes activate a hard fail-closed mode. Generic Assist, history, AI Task, and camera/image APIs are removed for that request. In-scope selected-script tools remain only with `confirmation = "inherit"`; the independently permission-checked scheduler remains eligible when enabled.
+- For `confirmation = "sensitive"` or `confirmation = "always"`, generic Assist control and every selected-script tool are withheld because Home Assistant has no generic trusted confirmation API. History and media may remain without a hard scope, and confirmation text is guidance only for those other tools. The scheduler separately enforces confirmation for sensitive targets, with `always` extending it to every scheduled device action.
+- Loading is bounded to 32 catalog files, 64 KiB per file, 512 KiB total, 8 selected packs per profile, and strict per-field and combined instruction limits.
+
+### Privacy
+
+- Scheduled-action storage is private to Home Assistant. Calendar entries use human-readable titles, creator names, action references, statuses, and target display names without exposing Home Assistant entity or user IDs. Normal Home Assistant permissions determine who can read those details or delete non-executing calendar events.
+- Scheduler tool-list results, diagnostics, and completion-event data omit reminder bodies, stored tool arguments, entity IDs, user IDs, complete prompts, and assistant responses. Home Assistant's standard local event Context retains the creator user ID and parent Context ID for auditing; those Context fields are not event data or model output and are not sent to ChatGPT by firing the event. The reminder body appears only in private storage and its due persistent notification; its title is also visible on the calendar.
+- Skill IDs, names, paths, instructions, output formats, and entity or area scopes are excluded from diagnostics; only bounded catalog and selection counts are reported.
+- Opt-in room-entity context and restricted-Jinja state lookups require an authenticated initiating Home Assistant user, honor that user's read permissions, and are intersected with an active local-skill scope.
+- Both scheduled actions and local skill selections default to disabled or empty, so upgrading grants no new device, file, web-search, or prompt access.
+
+### Release process and compatibility
+
+- The automated release workflow is now read-only. It validates the tagged version, builds both installation archives, verifies their layouts, generates checksums, and uploads workflow artifacts without creating or changing a GitHub release.
+- GitHub releases are published after that automated build through the authenticated `julianrinaldi` account, so releases show the human repository owner rather than `github-actions[bot]` as publisher.
+- Config entries migrate automatically to version 14 with scheduled actions disabled and no selected local skills. Existing OAuth credentials, assistant profiles, entities, selected scripts, prompt templates, actions, and automations remain compatible; no reauthentication is required.
+
 ## [1.7.1] - 2026-08-15
 
 ### Fixed
@@ -306,3 +352,4 @@ All notable user-facing changes are documented in this file.
 [1.6.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.2...v1.6.3
 [1.7.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.3...v1.7.0
 [1.7.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.0...v1.7.1
+[1.8.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.1...v1.8.0

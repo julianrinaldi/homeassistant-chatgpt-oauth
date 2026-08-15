@@ -7,6 +7,7 @@ from typing import Any, NoReturn
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ENTITY_ID, Platform
 from homeassistant.core import (
+    Context,
     HomeAssistant,
     ServiceCall,
     ServiceResponse,
@@ -28,6 +29,8 @@ from .const import (
     CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_ENABLE_SCHEDULED_ACTIONS,
+    CONF_ENABLED_LOCAL_SKILLS,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -50,6 +53,8 @@ from .const import (
     DEFAULT_ENABLE_AI_MEDIA_TOOLS,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
+    DEFAULT_ENABLE_SCHEDULED_ACTIONS,
+    DEFAULT_ENABLED_LOCAL_SKILLS,
     DEFAULT_INCLUDE_ROOM_ENTITIES,
     DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT,
     DEFAULT_INCLUDE_USER_CONTEXT,
@@ -82,6 +87,7 @@ from .const import (
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_CONTENT,
     SERVICE_WEB_SEARCH,
+    SUBENTRY_TYPE_ASSISTANT,
 )
 from .content import (
     image_part_from_entity,
@@ -100,6 +106,11 @@ from .exceptions import (
     StructuredOutputError,
 )
 from .history_tools import create_history_api
+from .local_skill_runtime import async_resolve_local_skill_scope
+from .local_skills import (
+    async_load_local_skill_catalog,
+    resolve_local_skill_policy,
+)
 from .media_tools import create_ai_media_api
 from .models import (
     ALL_REASONING_EFFORTS,
@@ -110,13 +121,20 @@ from .models import (
 from .profiles import (
     assistant_profiles_fingerprint,
     normalize_entity_ids,
+    normalize_local_skill_ids,
     normalize_max_tool_calls,
     normalize_max_tool_time,
     normalize_memory_max_characters,
     normalize_memory_max_turns,
     normalize_memory_mode,
+    resolve_assistant_profile,
 )
 from .responses import ChatGPTTextResponse
+from .scheduled_actions import (
+    ScheduledActionManager,
+    remove_scheduled_action_manager,
+    set_scheduled_action_manager,
+)
 from .web_search import (
     WEB_SEARCH_AUTO,
     WEB_SEARCH_DISABLED,
@@ -126,7 +144,11 @@ from .web_search import (
     normalize_web_search_mode,
 )
 
-PLATFORMS: tuple[Platform, ...] = (Platform.CONVERSATION, Platform.AI_TASK)
+PLATFORMS: tuple[Platform, ...] = (
+    Platform.CONVERSATION,
+    Platform.AI_TASK,
+    Platform.CALENDAR,
+)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PER_CALL_WEB_SEARCH_MODES = (
     "configured",
@@ -496,7 +518,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 13:
+    if entry.version > 14:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -504,6 +526,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         return False
 
+    previous_version = entry.version
     data = dict(entry.data)
     model = normalize_model(data.get(CONF_MODEL, DEFAULT_MODEL))
     try:
@@ -539,10 +562,19 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if isinstance(ai_media_tools, bool)
         else DEFAULT_ENABLE_AI_MEDIA_TOOLS
     )
+    scheduled_actions = data.get(CONF_ENABLE_SCHEDULED_ACTIONS)
+    data[CONF_ENABLE_SCHEDULED_ACTIONS] = (
+        scheduled_actions
+        if isinstance(scheduled_actions, bool)
+        else DEFAULT_ENABLE_SCHEDULED_ACTIONS
+    )
     data[CONF_SELECTED_SCRIPT_ENTITIES] = normalize_entity_ids(
         data.get(CONF_SELECTED_SCRIPT_ENTITIES, DEFAULT_SELECTED_SCRIPT_ENTITIES),
         domain="script",
         maximum=MAX_SELECTED_SCRIPT_TOOLS,
+    )
+    data[CONF_ENABLED_LOCAL_SKILLS] = normalize_local_skill_ids(
+        data.get(CONF_ENABLED_LOCAL_SKILLS, DEFAULT_ENABLED_LOCAL_SKILLS)
     )
     data[CONF_PROMPT_TEMPLATE_ENTITIES] = normalize_entity_ids(
         data.get(
@@ -679,8 +711,28 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 13 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=13)
+    if previous_version < 14:
+        for subentry in entry.subentries.values():
+            if subentry.subentry_type != SUBENTRY_TYPE_ASSISTANT:
+                continue
+            subentry_data = dict(subentry.data)
+            subentry_data.setdefault(
+                CONF_ENABLE_SCHEDULED_ACTIONS,
+                DEFAULT_ENABLE_SCHEDULED_ACTIONS,
+            )
+            subentry_data.setdefault(
+                CONF_ENABLED_LOCAL_SKILLS,
+                list(DEFAULT_ENABLED_LOCAL_SKILLS),
+            )
+            if subentry_data != dict(subentry.data):
+                hass.config_entries.async_update_subentry(
+                    entry,
+                    subentry,
+                    data=subentry_data,
+                )
+
+    if previous_version < 14 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=14)
     return True
 
 
@@ -697,6 +749,57 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(str(err)) from err
 
     entry.runtime_data = client
+
+    def _profile_settings(profile_id: str):
+        if profile_id == entry.entry_id:
+            return resolve_assistant_profile(entry)
+        subentry = entry.subentries.get(profile_id)
+        if subentry is None or subentry.subentry_type != SUBENTRY_TYPE_ASSISTANT:
+            return None
+        return resolve_assistant_profile(entry, subentry)
+
+    async def _async_resolve_profile_scope(
+        profile_id: str,
+        context: Context,
+        assistant: str | None,
+    ) -> frozenset[str] | None:
+        """Resolve the profile's current hard skill scope for scheduled execution."""
+        settings = _profile_settings(profile_id)
+        if settings is None:
+            return frozenset()
+        catalog = await async_load_local_skill_catalog(hass)
+        policy = resolve_local_skill_policy(
+            catalog,
+            settings.enabled_local_skill_ids,
+        )
+        return await async_resolve_local_skill_scope(
+            hass,
+            policy,
+            llm.LLMContext(
+                platform=DOMAIN,
+                context=context,
+                language=None,
+                assistant=assistant,
+                device_id=None,
+            ),
+        )
+
+    manager = ScheduledActionManager(
+        hass,
+        entry.entry_id,
+        profile_is_enabled=lambda profile_id: bool(
+            (settings := _profile_settings(profile_id))
+            and settings.enable_scheduled_actions
+        ),
+        profile_allows_device_actions=lambda profile_id: bool(
+            (settings := _profile_settings(profile_id))
+            and settings.enable_scheduled_actions
+            and settings.enable_home_assistant_control
+        ),
+        async_resolve_profile_scope=_async_resolve_profile_scope,
+    )
+    await manager.async_load()
+    set_scheduled_action_manager(hass, entry.entry_id, manager)
     profile = get_model_profile(client.model)
     web_search = client.web_search_options
     text_transport = (
@@ -713,7 +816,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         text_transport,
         web_search.mode,
     )
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except Exception:
+        remove_scheduled_action_manager(hass, entry.entry_id)
+        manager.async_shutdown()
+        entry.runtime_data = None
+        raise
 
     profile_fingerprint = assistant_profiles_fingerprint(entry)
 
@@ -742,5 +851,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload one config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        if manager := remove_scheduled_action_manager(hass, entry.entry_id):
+            manager.async_shutdown()
         entry.runtime_data = None
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove private scheduled-action storage with the config entry."""
+    manager = remove_scheduled_action_manager(hass, entry.entry_id)
+    if manager is None:
+        manager = ScheduledActionManager(hass, entry.entry_id)
+    await manager.async_remove_store()

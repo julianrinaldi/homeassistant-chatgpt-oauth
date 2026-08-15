@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from homeassistant.components import conversation
+from homeassistant.core import Context
+from pytest_homeassistant_custom_component.common import MockConfigEntry, MockUser
 
+from custom_components.openai_oauth_conversation.client import ChatGPTOAuthClient
 from custom_components.openai_oauth_conversation.const import (
     AI_MEDIA_LLM_API_ID,
     CONF_ENABLE_HASS_CONTROL,
+    CONF_ENABLE_SCHEDULED_ACTIONS,
+    CONF_ENABLED_LOCAL_SKILLS,
     CONF_SELECTED_SCRIPT_ENTITIES,
+    CONF_WEB_SEARCH_MODE,
+    DOMAIN,
     EVENT_CONVERSATION_FINISHED,
 )
 from custom_components.openai_oauth_conversation.conversation import (
@@ -19,6 +27,7 @@ from custom_components.openai_oauth_conversation.conversation import (
     _chat_log_instructions,
     _conversation_finished_event_data,
     _llm_api_selection,
+    parse_scheduled_action_confirmation,
 )
 from custom_components.openai_oauth_conversation.request_context import (
     ResolvedRequestContext,
@@ -26,6 +35,10 @@ from custom_components.openai_oauth_conversation.request_context import (
 from custom_components.openai_oauth_conversation.responses import (
     ChatGPTTextResponse,
     WebCitation,
+)
+from custom_components.openai_oauth_conversation.web_search import (
+    WEB_SEARCH_AUTO,
+    WEB_SEARCH_DISABLED,
 )
 
 
@@ -48,6 +61,86 @@ def test_chat_log_history_is_preserved() -> None:
     ]
     assert input_items[0]["content"] == "First question"
     assert input_items[1]["content"] == "First answer"
+
+
+def test_scheduled_confirmation_requires_the_exact_whole_raw_message() -> None:
+    """Only the reserved standalone phrase produces a trusted action reference."""
+    action_id = "01ARZ3NDEKTS"
+    for message in (
+        f"Confirm scheduled action {action_id}",
+        f"confirm scheduled action {action_id.lower()}",
+        f"  CONFIRM SCHEDULED ACTION {action_id}!  ",
+        f"Confirm scheduled action {action_id}.",
+        f"Confirm scheduled action {action_id}?",
+    ):
+        assert parse_scheduled_action_confirmation(message) == action_id
+
+    for message in (
+        f"Please confirm scheduled action {action_id}",
+        f"Confirm scheduled action {action_id} now",
+        f"Confirm scheduled action: {action_id}",
+        f"Confirm  scheduled action {action_id}",
+        f"Confirm scheduled action {action_id}!!",
+        "Confirm scheduled action 01ARZ3NDEKT",
+        "Confirm scheduled action 01ARZ3NDEKTI",
+        f"{action_id}",
+    ):
+        assert parse_scheduled_action_confirmation(message) is None
+
+
+async def test_missing_local_skill_uses_no_tools_and_disables_web_search(hass) -> None:
+    """A missing selected pack reaches the real client only in safe mode."""
+    user = MockUser(is_owner=True).add_to_hass(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=14,
+        data={
+            CONF_ENABLE_HASS_CONTROL: True,
+            CONF_ENABLE_SCHEDULED_ACTIONS: True,
+            CONF_ENABLED_LOCAL_SKILLS: ["missing-private-pack"],
+            CONF_WEB_SEARCH_MODE: WEB_SEARCH_AUTO,
+        },
+    )
+    entry.add_to_hass(hass)
+    client = ChatGPTOAuthClient(hass, entry)
+    response = ChatGPTTextResponse(
+        text="Safe response",
+        raw_text="Safe response",
+        raw_events=[],
+    )
+    client.async_create_response = AsyncMock(return_value=response)
+    client.async_create_tool_response = AsyncMock()
+    entry.runtime_data = client
+
+    entity = ChatGPTOAuthConversationEntity(entry)
+    entity.hass = hass
+    entity.entity_id = "conversation.chatgpt_oauth"
+    user_input = conversation.ConversationInput(
+        text="Check my home",
+        context=Context(user_id=user.id),
+        conversation_id="safe-mode-conversation",
+        device_id=None,
+        satellite_id=None,
+        language="en",
+        agent_id=entity.entity_id,
+    )
+    chat_log = conversation.ChatLog(
+        hass,
+        "safe-mode-conversation",
+        content=[
+            conversation.SystemContent(""),
+            conversation.UserContent(user_input.text),
+        ],
+    )
+
+    result = await entity._async_handle_message(user_input, chat_log)
+
+    assert result.response.speech["plain"]["speech"] == "Safe response"
+    client.async_create_tool_response.assert_not_awaited()
+    call = client.async_create_response.await_args.kwargs
+    assert call["web_search"].mode == WEB_SEARCH_DISABLED
+    assert "Safe mode is active" in call["instructions"]
+    assert chat_log.llm_api is None or not chat_log.llm_api.tools
 
 
 def test_control_feature_follows_entry_setting() -> None:
@@ -126,6 +219,19 @@ def test_ai_task_camera_tools_use_a_separate_privacy_setting() -> None:
             )
         )
         is None
+    )
+    settings = SimpleNamespace(
+        enable_home_assistant_control=True,
+        enable_ai_media_tools=True,
+        enable_history_tools=False,
+    )
+    assert _llm_api_selection(settings, scoped=True) is None
+    assert (
+        _llm_api_selection(
+            settings,
+            allow_immediate_home_actions=False,
+        )
+        == AI_MEDIA_LLM_API_ID
     )
 
 

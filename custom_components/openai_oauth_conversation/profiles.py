@@ -13,6 +13,8 @@ from .const import (
     CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_ENABLE_SCHEDULED_ACTIONS,
+    CONF_ENABLED_LOCAL_SKILLS,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -35,6 +37,8 @@ from .const import (
     DEFAULT_ENABLE_AI_MEDIA_TOOLS,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
+    DEFAULT_ENABLE_SCHEDULED_ACTIONS,
+    DEFAULT_ENABLED_LOCAL_SKILLS,
     DEFAULT_INCLUDE_ROOM_ENTITIES,
     DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT,
     DEFAULT_INCLUDE_USER_CONTEXT,
@@ -66,6 +70,7 @@ from .const import (
     MIN_TOOL_TIME,
     SUBENTRY_TYPE_ASSISTANT,
 )
+from .local_skills import normalize_enabled_local_skill_ids as normalize_local_skill_ids
 from .models import get_model_profile, normalize_model, normalize_reasoning_effort
 from .web_search import (
     WebSearchOptions,
@@ -86,7 +91,9 @@ class AssistantProfileSettings:
     enable_home_assistant_control: bool
     enable_history_tools: bool
     enable_ai_media_tools: bool
+    enable_scheduled_actions: bool
     selected_script_entities: tuple[str, ...]
+    enabled_local_skill_ids: tuple[str, ...]
     prompt_template_entities: tuple[str, ...]
     include_user_context: bool
     include_satellite_room_context: bool
@@ -238,6 +245,11 @@ def profile_data_defaults(
             CONF_ENABLE_AI_MEDIA_TOOLS,
             DEFAULT_ENABLE_AI_MEDIA_TOOLS,
         ),
+        CONF_ENABLE_SCHEDULED_ACTIONS: _bool_setting(
+            source,
+            CONF_ENABLE_SCHEDULED_ACTIONS,
+            DEFAULT_ENABLE_SCHEDULED_ACTIONS,
+        ),
         CONF_SELECTED_SCRIPT_ENTITIES: normalize_entity_ids(
             source.get(
                 CONF_SELECTED_SCRIPT_ENTITIES,
@@ -245,6 +257,9 @@ def profile_data_defaults(
             ),
             domain="script",
             maximum=MAX_SELECTED_SCRIPT_TOOLS,
+        ),
+        CONF_ENABLED_LOCAL_SKILLS: normalize_local_skill_ids(
+            source.get(CONF_ENABLED_LOCAL_SKILLS, DEFAULT_ENABLED_LOCAL_SKILLS),
         ),
         CONF_PROMPT_TEMPLATE_ENTITIES: normalize_entity_ids(
             source.get(
@@ -338,7 +353,9 @@ def resolve_assistant_profile(
         enable_home_assistant_control=normalized[CONF_ENABLE_HASS_CONTROL],
         enable_history_tools=normalized[CONF_ENABLE_HISTORY_TOOLS],
         enable_ai_media_tools=normalized[CONF_ENABLE_AI_MEDIA_TOOLS],
+        enable_scheduled_actions=normalized[CONF_ENABLE_SCHEDULED_ACTIONS],
         selected_script_entities=tuple(normalized[CONF_SELECTED_SCRIPT_ENTITIES]),
+        enabled_local_skill_ids=tuple(normalized[CONF_ENABLED_LOCAL_SKILLS]),
         prompt_template_entities=tuple(normalized[CONF_PROMPT_TEMPLATE_ENTITIES]),
         include_user_context=normalized[CONF_INCLUDE_USER_CONTEXT],
         include_satellite_room_context=normalized[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT],
@@ -410,10 +427,18 @@ def profile_data_from_input(
             CONF_ENABLE_AI_MEDIA_TOOLS,
             base[CONF_ENABLE_AI_MEDIA_TOOLS],
         ),
+        CONF_ENABLE_SCHEDULED_ACTIONS: _bool_setting(
+            merged,
+            CONF_ENABLE_SCHEDULED_ACTIONS,
+            base[CONF_ENABLE_SCHEDULED_ACTIONS],
+        ),
         CONF_SELECTED_SCRIPT_ENTITIES: normalize_entity_ids(
             merged.get(CONF_SELECTED_SCRIPT_ENTITIES),
             domain="script",
             maximum=MAX_SELECTED_SCRIPT_TOOLS,
+        ),
+        CONF_ENABLED_LOCAL_SKILLS: normalize_local_skill_ids(
+            merged.get(CONF_ENABLED_LOCAL_SKILLS),
         ),
         CONF_PROMPT_TEMPLATE_ENTITIES: normalize_entity_ids(
             merged.get(CONF_PROMPT_TEMPLATE_ENTITIES),

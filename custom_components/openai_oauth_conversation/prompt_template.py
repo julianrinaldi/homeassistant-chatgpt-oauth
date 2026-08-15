@@ -117,15 +117,15 @@ async def _async_selected_states(
     context: Context | None,
     entity_ids: tuple[str, ...],
 ) -> dict[str, State]:
-    user = None
-    if context is not None and context.user_id is not None:
-        user = await hass.auth.async_get_user(context.user_id)
-        if user is None:
-            return {}
+    if context is None or context.user_id is None:
+        return {}
+    user = await hass.auth.async_get_user(context.user_id)
+    if user is None:
+        return {}
 
     selected: dict[str, State] = {}
     for entity_id in entity_ids:
-        if user is not None and not user.permissions.check_entity(
+        if not user.permissions.check_entity(
             entity_id,
             POLICY_READ,
         ):

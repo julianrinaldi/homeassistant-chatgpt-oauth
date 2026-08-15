@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.7.1"
+INTEGRATION_VERSION: Final = "1.8.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -24,7 +24,9 @@ CONF_EXPIRES: Final = "expires"
 CONF_ENABLE_HASS_CONTROL: Final = "enable_home_assistant_control"
 CONF_ENABLE_HISTORY_TOOLS: Final = "enable_history_tools"
 CONF_ENABLE_AI_MEDIA_TOOLS: Final = "enable_ai_media_tools"
+CONF_ENABLE_SCHEDULED_ACTIONS: Final = "enable_scheduled_actions"
 CONF_SELECTED_SCRIPT_ENTITIES: Final = "selected_script_tools"
+CONF_ENABLED_LOCAL_SKILLS: Final = "enabled_local_skills"
 CONF_PROMPT_TEMPLATE_ENTITIES: Final = "prompt_template_entities"
 CONF_INCLUDE_USER_CONTEXT: Final = "include_user_context"
 CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = "include_satellite_room_context"
@@ -61,7 +63,9 @@ DEFAULT_NAME: Final = INTEGRATION_NAME
 DEFAULT_ENABLE_HASS_CONTROL: Final = True
 DEFAULT_ENABLE_HISTORY_TOOLS: Final = False
 DEFAULT_ENABLE_AI_MEDIA_TOOLS: Final = False
+DEFAULT_ENABLE_SCHEDULED_ACTIONS: Final = False
 DEFAULT_SELECTED_SCRIPT_ENTITIES: Final = ()
+DEFAULT_ENABLED_LOCAL_SKILLS: Final = ()
 DEFAULT_PROMPT_TEMPLATE_ENTITIES: Final = ()
 DEFAULT_INCLUDE_USER_CONTEXT: Final = False
 DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = False
@@ -100,6 +104,7 @@ MAX_TOOL_TIME: Final = 120
 MAX_WEB_SEARCH_ACTIONS: Final = 10
 MAX_ROOM_CONTEXT_ENTITIES: Final = 40
 MAX_SELECTED_SCRIPT_TOOLS: Final = 20
+MAX_ENABLED_LOCAL_SKILLS: Final = 8
 MAX_PROMPT_TEMPLATE_ENTITIES: Final = 40
 MAX_PROMPT_TEMPLATE_SOURCE_CHARACTERS: Final = 20_000
 MAX_RENDERED_PROMPT_CHARACTERS: Final = 24_000
@@ -107,6 +112,7 @@ MAX_SCRIPT_TOOL_RESPONSE_CHARACTERS: Final = 16_000
 MAX_SCRIPT_TOOL_TEXT_FIELD_CHARACTERS: Final = 4_000
 
 EVENT_CONVERSATION_FINISHED: Final = "chatgpt_oauth.conversation_finished"
+EVENT_SCHEDULED_ACTION_FINISHED: Final = "chatgpt_oauth.scheduled_action_finished"
 
 DEFAULT_AI_TASK_SYSTEM_PROMPT: Final = (
     "You are a Home Assistant expert. Follow the user's task instructions and "

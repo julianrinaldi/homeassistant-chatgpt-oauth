@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from homeassistant.core import Context
 import pytest
+from pytest_homeassistant_custom_component.common import MockUser
 
 from custom_components.openai_oauth_conversation.const import DEFAULT_PROMPT
 from custom_components.openai_oauth_conversation.prompt_template import (
@@ -17,6 +18,7 @@ from custom_components.openai_oauth_conversation.request_context import (
 
 async def test_prompt_template_uses_context_and_only_selected_states(hass) -> None:
     """Templates receive opted-in labels and an allowlisted state lookup."""
+    user = MockUser(is_owner=True).add_to_hass(hass)
     hass.states.async_set(
         "input_boolean.quiet_mode",
         "on",
@@ -35,7 +37,7 @@ async def test_prompt_template_uses_context_and_only_selected_states(hass) -> No
             user_display_name="Julian",
             area_display_name="Kitchen",
         ),
-        context=Context(),
+        context=Context(user_id=user.id),
         selected_entity_ids=("input_boolean.quiet_mode",),
     )
 
@@ -47,6 +49,7 @@ async def test_prompt_template_uses_context_and_only_selected_states(hass) -> No
 
 async def test_prompt_state_text_cannot_trigger_a_second_jinja_render(hass) -> None:
     """Template-looking entity data is neutralized before Home Assistant sees it."""
+    user = MockUser(is_owner=True).add_to_hass(hass)
     hass.states.async_set(
         "sensor.status_message",
         "{{ states('sensor.private_value') }}",
@@ -56,12 +59,28 @@ async def test_prompt_state_text_cannot_trigger_a_second_jinja_render(hass) -> N
         hass,
         source="Status: {{ states('sensor.status_message') }}",
         request_context=ResolvedRequestContext(),
-        context=Context(),
+        context=Context(user_id=user.id),
         selected_entity_ids=("sensor.status_message",),
     )
 
     assert "{{" not in rendered
     assert "sensor.private_value" in rendered
+
+
+async def test_prompt_entity_states_require_an_authenticated_user(hass) -> None:
+    """An anonymous request cannot read even an explicitly selected entity."""
+    hass.states.async_set("sensor.private_value", "secret")
+
+    rendered = await async_render_system_prompt(
+        hass,
+        source="Private={{ states('sensor.private_value') }}",
+        request_context=ResolvedRequestContext(),
+        context=Context(),
+        selected_entity_ids=("sensor.private_value",),
+    )
+
+    assert rendered == "Private=unknown"
+    assert "secret" not in rendered
 
 
 async def test_prompt_template_supports_local_time_formatting(hass) -> None:

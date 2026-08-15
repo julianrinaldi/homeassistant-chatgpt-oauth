@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
+from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components import conversation
 from homeassistant.core import Context
 from homeassistant.helpers import (
@@ -27,7 +28,11 @@ async def test_opt_in_context_uses_display_labels_and_exposed_room_entities(
     hass,
 ) -> None:
     """Model context contains useful labels but no Home Assistant identifiers."""
-    user = MockUser(id="private-user-id", name="Julian Rinaldi").add_to_hass(hass)
+    user = MockUser(
+        id="private-user-id",
+        name="Julian Rinaldi",
+        is_owner=True,
+    ).add_to_hass(hass)
     config_entry = MockConfigEntry(domain="test")
     config_entry.add_to_hass(hass)
     area = ar.async_get(hass).async_create("Kitchen")
@@ -108,6 +113,69 @@ async def test_opt_in_context_uses_display_labels_and_exposed_room_entities(
     assert device.id not in instructions
     assert area.id not in instructions
     assert satellite.entity_id not in instructions
+
+    with patch(
+        "custom_components.openai_oauth_conversation.request_context."
+        "async_should_expose",
+        return_value=True,
+    ):
+        scoped = await async_resolve_request_context(
+            hass,
+            user_input,
+            settings,
+            allowed_entity_ids=frozenset(),
+        )
+
+    assert scoped.room_entities == ()
+
+    check_entity = Mock(return_value=False)
+    restricted_user = SimpleNamespace(
+        name="Restricted User",
+        permissions=SimpleNamespace(check_entity=check_entity),
+    )
+    with (
+        patch(
+            "custom_components.openai_oauth_conversation.request_context."
+            "async_should_expose",
+            return_value=True,
+        ),
+        patch.object(
+            hass.auth,
+            "async_get_user",
+            AsyncMock(return_value=restricted_user),
+        ),
+    ):
+        restricted = await async_resolve_request_context(
+            hass,
+            user_input,
+            settings,
+        )
+
+    assert restricted.user_display_name == "Restricted User"
+    assert restricted.room_entities == ()
+    check_entity.assert_called_once_with(light.entity_id, POLICY_READ)
+
+    anonymous_input = conversation.ConversationInput(
+        text="What is happening in here?",
+        context=Context(),
+        conversation_id="conversation-anonymous",
+        device_id=None,
+        satellite_id=satellite.entity_id,
+        language="en",
+        agent_id="conversation.chatgpt_oauth",
+    )
+    with patch(
+        "custom_components.openai_oauth_conversation.request_context."
+        "async_should_expose",
+        return_value=True,
+    ):
+        anonymous = await async_resolve_request_context(
+            hass,
+            anonymous_input,
+            settings,
+        )
+
+    assert anonymous.room_entities == ()
 
 
 async def test_context_is_not_sent_without_opt_in(hass) -> None:

@@ -10,6 +10,8 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_ENABLE_SCHEDULED_ACTIONS,
+    CONF_ENABLED_LOCAL_SKILLS,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -55,7 +57,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 13
+    assert entry.version == 14
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
@@ -64,7 +66,9 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
     assert entry.data[CONF_ENABLE_AI_MEDIA_TOOLS] is False
     assert entry.data[CONF_ENABLE_HISTORY_TOOLS] is False
+    assert entry.data[CONF_ENABLE_SCHEDULED_ACTIONS] is False
     assert entry.data[CONF_SELECTED_SCRIPT_ENTITIES] == []
+    assert entry.data[CONF_ENABLED_LOCAL_SKILLS] == []
     assert entry.data[CONF_PROMPT_TEMPLATE_ENTITIES] == []
     assert entry.data[CONF_INCLUDE_USER_CONTEXT] is False
     assert entry.data[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is False
@@ -110,3 +114,31 @@ async def test_migration_resets_invalid_web_search_settings(hass) -> None:
     assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION] is False
+
+
+async def test_migration_keeps_existing_subentries_opted_out(hass) -> None:
+    """New profile capabilities do not later leak in from the parent profile."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=13,
+        title="Account",
+        data={
+            CONF_ACCESS_TOKEN: "access",
+            CONF_REFRESH_TOKEN: "refresh",
+            CONF_MODEL: "gpt-5.6-terra",
+        },
+        subentries_data=(
+            {
+                "subentry_type": "assistant",
+                "title": "Private assistant",
+                "unique_id": None,
+                "data": {CONF_MODEL: "gpt-5.6-terra"},
+            },
+        ),
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.data[CONF_ENABLE_SCHEDULED_ACTIONS] is False
+    assert subentry.data[CONF_ENABLED_LOCAL_SKILLS] == []

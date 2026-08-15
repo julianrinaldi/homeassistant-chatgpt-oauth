@@ -20,6 +20,12 @@ from .const import (
     MAX_IMAGE_ATTACHMENTS,
     SUBENTRY_TYPE_ASSISTANT,
 )
+from .local_skills import (
+    LocalSkillCatalog,
+    apply_local_skill_web_search_policy,
+    async_load_local_skill_catalog,
+    resolve_local_skill_policy,
+)
 from .models import get_model_profile
 from .profiles import AssistantProfileSettings, resolve_assistant_profile
 
@@ -44,9 +50,14 @@ def _profile_diagnostics(
     settings: AssistantProfileSettings,
     *,
     subentry: ConfigSubentry | None,
+    skill_catalog: LocalSkillCatalog,
 ) -> dict[str, Any]:
     """Return non-sensitive settings for one conversation profile."""
     model = get_model_profile(settings.model)
+    skill_policy = resolve_local_skill_policy(
+        skill_catalog,
+        settings.enabled_local_skill_ids,
+    )
     return {
         "title": settings.title,
         "profile_type": "default" if subentry is None else "additional",
@@ -80,6 +91,40 @@ def _profile_diagnostics(
             "selected_count": len(settings.selected_script_entities),
             "script_entity_ids_in_diagnostics": False,
             "requires_user_entity_permissions": True,
+        },
+        "scheduled_actions": {
+            "enabled": settings.enable_scheduled_actions,
+            "persistent_private_storage": True,
+            "visible_calendar": True,
+            "sensitive_actions_require_confirmation": True,
+            "stored_arguments_in_diagnostics": False,
+        },
+        "local_skills": {
+            "configured_enabled_count": len(settings.enabled_local_skill_ids),
+            "valid_selected_count": (
+                len(skill_policy.packs) + len(skill_policy.skipped_skill_ids)
+            ),
+            "instruction_pack_count": len(skill_policy.packs),
+            "missing_selected_count": len(skill_policy.missing_skill_ids),
+            "skipped_instruction_count": len(skill_policy.skipped_skill_ids),
+            "declared_scope": skill_policy.has_scope,
+            "effective_fail_closed_scope": bool(
+                skill_policy.has_scope
+                or skill_policy.missing_skill_ids
+                or skill_policy.skipped_skill_ids
+            ),
+            "declared_web_policy": skill_policy.web_search_policy,
+            "effective_web_search_mode": apply_local_skill_web_search_policy(
+                settings.web_search,
+                skill_policy,
+            ).mode,
+            "effective_confirmation_policy": skill_policy.confirmation_policy,
+            "skill_ids_in_diagnostics": False,
+            "names_in_diagnostics": False,
+            "file_paths_in_diagnostics": False,
+            "instructions_in_diagnostics": False,
+            "automatic_downloads": False,
+            "executable_files": False,
         },
         "restricted_prompt_template": {
             "enabled": True,
@@ -137,11 +182,19 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return useful diagnostics without credentials, prompts, or content."""
     runtime_data = getattr(entry, "runtime_data", None)
-    profiles = [_profile_diagnostics(resolve_assistant_profile(entry), subentry=None)]
+    skill_catalog = await async_load_local_skill_catalog(hass)
+    profiles = [
+        _profile_diagnostics(
+            resolve_assistant_profile(entry),
+            subentry=None,
+            skill_catalog=skill_catalog,
+        )
+    ]
     profiles.extend(
         _profile_diagnostics(
             resolve_assistant_profile(entry, subentry),
             subentry=subentry,
+            skill_catalog=skill_catalog,
         )
         for subentry in entry.subentries.values()
         if subentry.subentry_type == SUBENTRY_TYPE_ASSISTANT
@@ -182,6 +235,19 @@ async def async_get_config_entry_diagnostics(
             "assist_image_generation": True,
             "selected_typed_script_tools": True,
             "restricted_jinja_system_prompts": True,
+            "persistent_scheduled_actions": True,
+            "local_opt_in_instruction_packs": True,
+        },
+        "local_skill_catalog": {
+            "loaded_count": skill_catalog.loaded_count,
+            "invalid_file_count": skill_catalog.invalid_file_count,
+            "ignored_entry_count": skill_catalog.ignored_entry_count,
+            "scanned_entry_count": skill_catalog.scanned_entry_count,
+            "root_available": skill_catalog.root_available,
+            "schema_versions": [1] if skill_catalog.loaded_count else [],
+            "skill_ids_in_diagnostics": False,
+            "file_paths_in_diagnostics": False,
+            "instructions_in_diagnostics": False,
         },
         "assistant_profiles": profiles,
     }

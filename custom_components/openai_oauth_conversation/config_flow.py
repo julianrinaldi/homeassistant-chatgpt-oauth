@@ -33,6 +33,8 @@ from .const import (
     CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_ENABLE_SCHEDULED_ACTIONS,
+    CONF_ENABLED_LOCAL_SKILLS,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -58,6 +60,7 @@ from .const import (
     DEFAULT_NAME,
     DOMAIN,
     LEGACY_OUTPUT_LIMIT_KEY,
+    MAX_ENABLED_LOCAL_SKILLS,
     MAX_MEMORY_MAX_CHARACTERS,
     MAX_MEMORY_MAX_TURNS,
     MAX_TOOL_CALLS,
@@ -80,6 +83,7 @@ from .exceptions import (
     RequestTimeoutError,
     RequestValidationError,
 )
+from .local_skills import async_load_local_skill_catalog
 from .models import (
     MODEL_PROFILES,
     REASONING_EFFORT_LABELS,
@@ -177,6 +181,7 @@ def _profile_schema(
     defaults: Mapping[str, Any],
     *,
     name_default: str,
+    local_skill_options: list[selector.SelectOptionDict] | None = None,
 ) -> vol.Schema:
     """Build one account or assistant-profile settings form."""
     return vol.Schema(
@@ -198,9 +203,24 @@ def _profile_schema(
                 default=defaults[CONF_ENABLE_AI_MEDIA_TOOLS],
             ): bool,
             vol.Optional(
+                CONF_ENABLE_SCHEDULED_ACTIONS,
+                default=defaults[CONF_ENABLE_SCHEDULED_ACTIONS],
+            ): bool,
+            vol.Optional(
                 CONF_SELECTED_SCRIPT_ENTITIES,
                 default=defaults[CONF_SELECTED_SCRIPT_ENTITIES],
             ): selector.EntitySelector({"domain": "script", "multiple": True}),
+            vol.Optional(
+                CONF_ENABLED_LOCAL_SKILLS,
+                default=defaults[CONF_ENABLED_LOCAL_SKILLS],
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=local_skill_options or [],
+                    multiple=True,
+                    custom_value=False,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Optional(
                 CONF_INCLUDE_USER_CONTEXT,
                 default=defaults[CONF_INCLUDE_USER_CONTEXT],
@@ -299,6 +319,26 @@ def _profile_schema(
     )
 
 
+async def _async_local_skill_options(
+    hass: Any,
+    selected_ids: object,
+) -> list[selector.SelectOptionDict]:
+    """Return catalog labels plus unavailable selections that can be removed."""
+    catalog = await async_load_local_skill_catalog(hass)
+    options: list[selector.SelectOptionDict] = [
+        {"value": skill_id, "label": pack.name}
+        for skill_id, pack in sorted(catalog.packs.items())
+    ]
+    available = set(catalog.packs)
+    selected = selected_ids if isinstance(selected_ids, (list, tuple)) else []
+    options.extend(
+        {"value": skill_id, "label": f"Unavailable: {skill_id}"}
+        for skill_id in selected
+        if isinstance(skill_id, str) and skill_id not in available
+    )
+    return options
+
+
 def _parse_profile_form(
     user_input: Mapping[str, Any],
     *,
@@ -309,6 +349,17 @@ def _parse_profile_form(
     model = get_model_profile(user_input.get(CONF_MODEL, defaults[CONF_MODEL])).slug
     normalized_input = dict(user_input)
     normalized_input[CONF_MODEL] = model
+    selected_local_skills = normalized_input.get(
+        CONF_ENABLED_LOCAL_SKILLS,
+        defaults[CONF_ENABLED_LOCAL_SKILLS],
+    )
+    if (
+        isinstance(selected_local_skills, (list, tuple, set, frozenset))
+        and len(selected_local_skills) > MAX_ENABLED_LOCAL_SKILLS
+    ):
+        raise ValueError(
+            f"At most {MAX_ENABLED_LOCAL_SKILLS} local skill packs may be selected"
+        )
     data = profile_data_from_input(normalized_input, defaults=defaults)
     data[CONF_PROMPT] = validate_prompt_template_source(data[CONF_PROMPT])
     name = str(user_input.get("name") or fallback_name).strip() or fallback_name
@@ -318,7 +369,7 @@ def _parse_profile_form(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 13
+    VERSION = 14
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]
@@ -357,7 +408,14 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_profile_schema(defaults, name_default=DEFAULT_NAME),
+            data_schema=_profile_schema(
+                defaults,
+                name_default=DEFAULT_NAME,
+                local_skill_options=await _async_local_skill_options(
+                    self.hass,
+                    defaults[CONF_ENABLED_LOCAL_SKILLS],
+                ),
+            ),
             errors=errors,
         )
 
@@ -522,7 +580,14 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_profile_schema(defaults, name_default=entry.title),
+            data_schema=_profile_schema(
+                defaults,
+                name_default=entry.title,
+                local_skill_options=await _async_local_skill_options(
+                    self.hass,
+                    defaults[CONF_ENABLED_LOCAL_SKILLS],
+                ),
+            ),
             errors=errors,
         )
 
@@ -609,6 +674,8 @@ class AssistantProfileSubentryFlow(ConfigSubentryFlow):
         # New profiles start with conservative privacy and memory defaults even
         # when the parent account was migrated from an older full-history entry.
         defaults[CONF_ENABLE_HISTORY_TOOLS] = False
+        defaults[CONF_ENABLE_SCHEDULED_ACTIONS] = False
+        defaults[CONF_ENABLED_LOCAL_SKILLS] = []
         defaults[CONF_MEMORY_MODE] = MEMORY_MODE_RECENT
         defaults[CONF_MEMORY_MAX_TURNS] = DEFAULT_MEMORY_MAX_TURNS
         defaults[CONF_MEMORY_MAX_CHARACTERS] = DEFAULT_MEMORY_MAX_CHARACTERS
@@ -630,7 +697,14 @@ class AssistantProfileSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_profile_schema(defaults, name_default=default_name),
+            data_schema=_profile_schema(
+                defaults,
+                name_default=default_name,
+                local_skill_options=await _async_local_skill_options(
+                    self.hass,
+                    defaults[CONF_ENABLED_LOCAL_SKILLS],
+                ),
+            ),
             errors=errors,
         )
 
@@ -708,7 +782,14 @@ class AssistantProfileSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_profile_schema(defaults, name_default=subentry.title),
+            data_schema=_profile_schema(
+                defaults,
+                name_default=subentry.title,
+                local_skill_options=await _async_local_skill_options(
+                    self.hass,
+                    defaults[CONF_ENABLED_LOCAL_SKILLS],
+                ),
+            ),
             errors=errors,
         )
 
