@@ -2,6 +2,19 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.7.1] - 2026-08-15
+
+### Fixed
+
+- Clean GitHub Actions runners now install the exact Home Assistant conversation requirements before collecting integration tests.
+- The release test matrix can validate both the minimum supported Home Assistant 2026.4.0 release and Home Assistant 2026.7.4 instead of failing because the runner omitted Home Assistant's dynamically installed conversation packages.
+
+### Compatibility
+
+- Integration behavior and config-entry version are unchanged from 1.7.0.
+- The selected-script tools and restricted Jinja prompt features from 1.7.0 are included unchanged.
+- No reauthentication or configuration change is required.
+
 ## [1.7.0] - 2026-08-15
 
 ### Added
@@ -292,3 +305,4 @@ All notable user-facing changes are documented in this file.
 [1.6.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.1...v1.6.2
 [1.6.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.2...v1.6.3
 [1.7.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.3...v1.7.0
+[1.7.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.0...v1.7.1
