@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.3.1] - 2026-08-15
+
+### Changed
+
+- Replaced internal setting names with plain-language labels throughout account and assistant-profile setup and reconfiguration.
+- Added clear explanations for Home Assistant history access, conversation memory modes and limits, and web-search source links.
+- Renamed the four memory choices to describe what each one remembers.
+- Replaced the optional memory-limit controls with standard number fields, removing the confusing extra enable checkbox.
+
+### Compatibility
+
+- Existing settings, OAuth credentials, assistant profiles, entities, actions, and automations are unchanged.
+- The stable internal domain remains `openai_oauth_conversation`.
+
 ## [1.3.0] - 2026-08-15
 
 ### Added
@@ -144,3 +158,4 @@ All notable user-facing changes are documented in this file.
 [1.2.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.1...v1.2.0
 [1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1
 [1.3.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.1...v1.3.0
+[1.3.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.0...v1.3.1

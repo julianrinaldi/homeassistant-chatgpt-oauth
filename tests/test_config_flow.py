@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries, data_entry_flow
+from homeassistant.helpers import translation
 from yarl import URL
 
 from custom_components.openai_oauth_conversation.auth import OAuthTokenData
@@ -24,6 +25,42 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
 )
+
+
+async def test_english_profile_translations(hass) -> None:
+    """Human-readable labels and help text load for both profile flows."""
+    config = await translation.async_get_translations(
+        hass,
+        "en",
+        "config",
+        {DOMAIN},
+    )
+    subentries = await translation.async_get_translations(
+        hass,
+        "en",
+        "config_subentries",
+        {DOMAIN},
+    )
+
+    assert (
+        config[f"component.{DOMAIN}.config.step.reconfigure.data.enable_history_tools"]
+        == "Use Home Assistant history"
+    )
+    assert config[
+        f"component.{DOMAIN}.config.step.reconfigure.data_description."
+        "enable_history_tools"
+    ].startswith("Allows this assistant to answer questions about past states")
+    assert (
+        subentries[
+            f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure.data."
+            "memory_mode"
+        ]
+        == "What should this assistant remember?"
+    )
+    assert subentries[
+        f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure."
+        "data_description.web_search_include_sources"
+    ].startswith("Adds clickable source links")
 
 
 async def test_full_user_flow(hass) -> None:

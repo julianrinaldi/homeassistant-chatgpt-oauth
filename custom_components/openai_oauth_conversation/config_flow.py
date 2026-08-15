@@ -135,10 +135,10 @@ def _web_search_context_schema() -> vol.In:
 def _memory_mode_schema() -> vol.In:
     return vol.In(
         {
-            MEMORY_MODE_CURRENT_TURN: "Current turn only",
-            MEMORY_MODE_RECENT: "Recent turns",
-            MEMORY_MODE_SUMMARIZED: "Summarize older turns",
-            MEMORY_MODE_FULL: "Full history up to limit",
+            MEMORY_MODE_CURRENT_TURN: "Current message only",
+            MEMORY_MODE_RECENT: "Recent conversation",
+            MEMORY_MODE_SUMMARIZED: "Recent conversation plus summary",
+            MEMORY_MODE_FULL: "Full conversation up to the size limit",
         }
     )
 
@@ -183,22 +183,28 @@ def _profile_schema(
                 CONF_MEMORY_MODE,
                 default=defaults[CONF_MEMORY_MODE],
             ): _memory_mode_schema(),
-            vol.Optional(
+            vol.Required(
                 CONF_MEMORY_MAX_TURNS,
                 default=defaults[CONF_MEMORY_MAX_TURNS],
-            ): vol.All(
-                vol.Coerce(int),
-                vol.Range(min=MIN_MEMORY_MAX_TURNS, max=MAX_MEMORY_MAX_TURNS),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_MEMORY_MAX_TURNS,
+                    max=MAX_MEMORY_MAX_TURNS,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
-            vol.Optional(
+            vol.Required(
                 CONF_MEMORY_MAX_CHARACTERS,
                 default=defaults[CONF_MEMORY_MAX_CHARACTERS],
-            ): vol.All(
-                vol.Coerce(int),
-                vol.Range(
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
                     min=MIN_MEMORY_MAX_CHARACTERS,
                     max=MAX_MEMORY_MAX_CHARACTERS,
-                ),
+                    step=1000,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="characters",
+                )
             ),
             vol.Required(
                 CONF_WEB_SEARCH_MODE,
