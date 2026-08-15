@@ -32,6 +32,11 @@ from .client import ChatGPTOAuthClient
 from .const import (
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_INCLUDE_ROOM_ENTITIES,
+    CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+    CONF_INCLUDE_USER_CONTEXT,
+    CONF_MAX_TOOL_CALLS,
+    CONF_MAX_TOOL_TIME,
     CONF_MEMORY_MAX_CHARACTERS,
     CONF_MEMORY_MAX_TURNS,
     CONF_MEMORY_MODE,
@@ -52,12 +57,16 @@ from .const import (
     LEGACY_OUTPUT_LIMIT_KEY,
     MAX_MEMORY_MAX_CHARACTERS,
     MAX_MEMORY_MAX_TURNS,
+    MAX_TOOL_CALLS,
+    MAX_TOOL_TIME,
     MEMORY_MODE_CURRENT_TURN,
     MEMORY_MODE_FULL,
     MEMORY_MODE_RECENT,
     MEMORY_MODE_SUMMARIZED,
     MIN_MEMORY_MAX_CHARACTERS,
     MIN_MEMORY_MAX_TURNS,
+    MIN_TOOL_CALLS,
+    MIN_TOOL_TIME,
     SUBENTRY_TYPE_ASSISTANT,
 )
 from .exceptions import (
@@ -180,6 +189,41 @@ def _profile_schema(
                 CONF_ENABLE_HISTORY_TOOLS,
                 default=defaults[CONF_ENABLE_HISTORY_TOOLS],
             ): bool,
+            vol.Optional(
+                CONF_INCLUDE_USER_CONTEXT,
+                default=defaults[CONF_INCLUDE_USER_CONTEXT],
+            ): bool,
+            vol.Optional(
+                CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+                default=defaults[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT],
+            ): bool,
+            vol.Optional(
+                CONF_INCLUDE_ROOM_ENTITIES,
+                default=defaults[CONF_INCLUDE_ROOM_ENTITIES],
+            ): bool,
+            vol.Required(
+                CONF_MAX_TOOL_CALLS,
+                default=defaults[CONF_MAX_TOOL_CALLS],
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_TOOL_CALLS,
+                    max=MAX_TOOL_CALLS,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required(
+                CONF_MAX_TOOL_TIME,
+                default=defaults[CONF_MAX_TOOL_TIME],
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_TOOL_TIME,
+                    max=MAX_TOOL_TIME,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="seconds",
+                )
+            ),
             vol.Required(
                 CONF_MEMORY_MODE,
                 default=defaults[CONF_MEMORY_MODE],
@@ -257,7 +301,7 @@ def _parse_profile_form(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 10
+    VERSION = 11
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]

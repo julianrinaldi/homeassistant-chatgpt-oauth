@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 import json
+import time
 from typing import Any
 
 import aiohttp
@@ -30,6 +32,8 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+    DEFAULT_MAX_TOOL_CALLS,
+    DEFAULT_MAX_TOOL_TIME,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
@@ -42,6 +46,7 @@ from .const import (
     LEGACY_OUTPUT_LIMIT_KEY,
     LOGGER,
     MAX_TOOL_ITERATIONS,
+    MAX_WEB_SEARCH_ACTIONS,
     ORIGINATOR,
     TEXT_REQUEST_TIMEOUT,
 )
@@ -89,6 +94,7 @@ from .schema import (
     structured_output_format,
 )
 from .sse import iter_sse_json
+from .tool_safety import ToolSafetyStop, ToolSafetyTracker
 from .web_search import (
     WEB_SEARCH_TOOL_TYPES,
     WebSearchOptions,
@@ -310,6 +316,27 @@ def _render_response_text(
     if web_search is None or not web_search.include_sources:
         return text.strip()
     return render_text_with_web_citations(text, citations, searches)
+
+
+def _tool_safety_response(
+    stop: ToolSafetyStop,
+    *,
+    raw_events: list[dict[str, Any]],
+    citations: list[Any],
+    searches: list[Any],
+    tracker: ToolSafetyTracker,
+) -> ChatGPTTextResponse:
+    """Return a clear spoken result when a tool loop is stopped safely."""
+    return ChatGPTTextResponse(
+        text=stop.message,
+        raw_text=stop.message,
+        raw_events=raw_events,
+        citations=citations,
+        searches=searches,
+        tool_names=tracker.tool_names,
+        tool_call_count=tracker.call_count,
+        tool_error_type=stop.error_type,
+    )
 
 
 class ChatGPTOAuthClient:
@@ -1082,6 +1109,8 @@ class ChatGPTOAuthClient:
         text_format: dict[str, Any] | None = None,
         reasoning_effort: str | None = None,
         web_search: WebSearchOptions | None = None,
+        max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
+        max_tool_time: float = DEFAULT_MAX_TOOL_TIME,
     ) -> ChatGPTTextResponse:
         """Create a conversation response with Home Assistant tools enabled."""
         tools = [
@@ -1101,8 +1130,12 @@ class ChatGPTOAuthClient:
         all_events: list[dict[str, Any]] = []
         all_citations = []
         all_searches = []
+        tracker = ToolSafetyTracker(
+            max_calls=max_tool_calls,
+            max_time=max_tool_time,
+        )
 
-        for _iteration in range(MAX_TOOL_ITERATIONS):
+        for _iteration in range(max_tool_calls + 2):
             turn = await self._async_create_turn(
                 model=model,
                 instructions=instructions,
@@ -1117,11 +1150,23 @@ class ChatGPTOAuthClient:
             all_events.extend(turn.raw_events)
             all_citations.extend(turn.citations)
             all_searches.extend(turn.searches)
+            citations = dedupe_citations(all_citations)
+            searches = dedupe_searches(all_searches)
+            if len(searches) > MAX_WEB_SEARCH_ACTIONS:
+                return _tool_safety_response(
+                    ToolSafetyStop(
+                        "excessive_web_searches",
+                        "I could not complete that because too many web searches "
+                        "were attempted without reaching an answer.",
+                    ),
+                    raw_events=all_events,
+                    citations=citations,
+                    searches=searches,
+                    tracker=tracker,
+                )
             if not turn.function_calls:
                 if not turn.text:
                     raise ResponseParseError("ChatGPT returned an empty response")
-                citations = dedupe_citations(all_citations)
-                searches = dedupe_searches(all_searches)
                 _validate_required_web_search(
                     web_search,
                     citations=citations,
@@ -1138,15 +1183,54 @@ class ChatGPTOAuthClient:
                     raw_events=all_events,
                     citations=citations,
                     searches=searches,
+                    tool_names=tracker.tool_names,
+                    tool_call_count=tracker.call_count,
                 )
-            await self._async_append_tool_results(
+            if turn.text and tracker.successful_call_count:
+                _validate_required_web_search(
+                    web_search,
+                    citations=citations,
+                    searches=searches,
+                )
+                return ChatGPTTextResponse(
+                    text=_render_response_text(
+                        turn.text,
+                        citations,
+                        searches,
+                        web_search,
+                    ),
+                    raw_text=turn.text,
+                    raw_events=all_events,
+                    citations=citations,
+                    searches=searches,
+                    tool_names=tracker.tool_names,
+                    tool_call_count=tracker.call_count,
+                )
+            stop = await self._async_append_tool_results(
                 input_items,
                 turn.function_calls,
                 llm_api,
+                tracker=tracker,
             )
+            if stop is not None:
+                return _tool_safety_response(
+                    stop,
+                    raw_events=all_events,
+                    citations=citations,
+                    searches=searches,
+                    tracker=tracker,
+                )
 
-        raise ResponseParseError(
-            "ChatGPT exceeded the maximum number of Home Assistant tool iterations"
+        return _tool_safety_response(
+            ToolSafetyStop(
+                "tool_call_limit",
+                "I could not complete that because the configured Home Assistant "
+                "tool-call limit was reached.",
+            ),
+            raw_events=all_events,
+            citations=dedupe_citations(all_citations),
+            searches=dedupe_searches(all_searches),
+            tracker=tracker,
         )
 
     async def _async_append_tool_results(
@@ -1154,9 +1238,13 @@ class ChatGPTOAuthClient:
         input_items: list[dict[str, Any]],
         calls: list[llm.ToolInput],
         llm_api: llm.APIInstance,
-    ) -> None:
+        *,
+        tracker: ToolSafetyTracker | None = None,
+    ) -> ToolSafetyStop | None:
         """Execute Home Assistant tools and append their results to input."""
         for call in calls:
+            if tracker is not None and (stop := tracker.before_call(call)) is not None:
+                return stop
             input_items.append(
                 {
                     "type": "function_call",
@@ -1165,10 +1253,23 @@ class ChatGPTOAuthClient:
                     "call_id": call.id,
                 }
             )
+            started = time.monotonic()
+            failed = False
             try:
-                result = await llm_api.async_call_tool(call)
+                if tracker is None:
+                    result = await llm_api.async_call_tool(call)
+                else:
+                    async with asyncio.timeout(tracker.remaining_time):
+                        result = await llm_api.async_call_tool(call)
+            except TimeoutError:
+                result = {
+                    "error": "ToolTimeLimit",
+                    "error_text": "The configured total tool time limit was reached.",
+                }
+                failed = True
             except Exception as err:  # Tool failures are reported back to the model.
                 result = {"error": type(err).__name__, "error_text": str(err)}
+                failed = True
             input_items.append(
                 {
                     "type": "function_call_output",
@@ -1176,3 +1277,16 @@ class ChatGPTOAuthClient:
                     "output": json_dumps(result),
                 }
             )
+            if tracker is None:
+                continue
+            stop = tracker.record(
+                call,
+                result,
+                duration=time.monotonic() - started,
+                failed=failed,
+            )
+            if isinstance(result, dict) and result.get("error") == "ToolTimeLimit":
+                return tracker.time_limit_stop()
+            if stop is not None:
+                return stop
+        return None

@@ -27,6 +27,11 @@ from .client import ChatGPTOAuthClient
 from .const import (
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_INCLUDE_ROOM_ENTITIES,
+    CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+    CONF_INCLUDE_USER_CONTEXT,
+    CONF_MAX_TOOL_CALLS,
+    CONF_MAX_TOOL_TIME,
     CONF_MEMORY_MAX_CHARACTERS,
     CONF_MEMORY_MAX_TURNS,
     CONF_MEMORY_MODE,
@@ -41,6 +46,11 @@ from .const import (
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
+    DEFAULT_INCLUDE_ROOM_ENTITIES,
+    DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT,
+    DEFAULT_INCLUDE_USER_CONTEXT,
+    DEFAULT_MAX_TOOL_CALLS,
+    DEFAULT_MAX_TOOL_TIME,
     DEFAULT_MEMORY_MAX_CHARACTERS,
     DEFAULT_MEMORY_MAX_TURNS,
     DEFAULT_MEMORY_MODE,
@@ -90,6 +100,8 @@ from .models import (
 )
 from .profiles import (
     assistant_profiles_fingerprint,
+    normalize_max_tool_calls,
+    normalize_max_tool_time,
     normalize_memory_max_characters,
     normalize_memory_max_turns,
     normalize_memory_mode,
@@ -446,7 +458,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 10:
+    if entry.version > 11:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -483,6 +495,42 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if isinstance(history_tools, bool)
         else DEFAULT_ENABLE_HISTORY_TOOLS
     )
+
+    for key, default in (
+        (CONF_INCLUDE_USER_CONTEXT, DEFAULT_INCLUDE_USER_CONTEXT),
+        (
+            CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+            DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT,
+        ),
+        (CONF_INCLUDE_ROOM_ENTITIES, DEFAULT_INCLUDE_ROOM_ENTITIES),
+    ):
+        value = data.get(key)
+        data[key] = value if isinstance(value, bool) else default
+
+    try:
+        data[CONF_MAX_TOOL_CALLS] = normalize_max_tool_calls(
+            data.get(CONF_MAX_TOOL_CALLS),
+            default=DEFAULT_MAX_TOOL_CALLS,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid tool-call limit; resetting to %s",
+            entry.entry_id,
+            DEFAULT_MAX_TOOL_CALLS,
+        )
+        data[CONF_MAX_TOOL_CALLS] = DEFAULT_MAX_TOOL_CALLS
+    try:
+        data[CONF_MAX_TOOL_TIME] = normalize_max_tool_time(
+            data.get(CONF_MAX_TOOL_TIME),
+            default=DEFAULT_MAX_TOOL_TIME,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid tool-time limit; resetting to %s",
+            entry.entry_id,
+            DEFAULT_MAX_TOOL_TIME,
+        )
+        data[CONF_MAX_TOOL_TIME] = DEFAULT_MAX_TOOL_TIME
 
     try:
         data[CONF_WEB_SEARCH_MODE] = normalize_web_search_mode(
@@ -575,8 +623,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 10 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=10)
+    if entry.version < 11 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=11)
     return True
 
 

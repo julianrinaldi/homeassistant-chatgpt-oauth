@@ -9,6 +9,11 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_ACCESS_TOKEN,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_INCLUDE_ROOM_ENTITIES,
+    CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+    CONF_INCLUDE_USER_CONTEXT,
+    CONF_MAX_TOOL_CALLS,
+    CONF_MAX_TOOL_TIME,
     CONF_MEMORY_MAX_CHARACTERS,
     CONF_MEMORY_MAX_TURNS,
     CONF_MEMORY_MODE,
@@ -47,7 +52,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 10
+    assert entry.version == 11
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
@@ -55,6 +60,11 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     assert entry.data[CONF_REASONING_EFFORT] == "low"
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
     assert entry.data[CONF_ENABLE_HISTORY_TOOLS] is False
+    assert entry.data[CONF_INCLUDE_USER_CONTEXT] is False
+    assert entry.data[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is False
+    assert entry.data[CONF_INCLUDE_ROOM_ENTITIES] is False
+    assert entry.data[CONF_MAX_TOOL_CALLS] == 5
+    assert entry.data[CONF_MAX_TOOL_TIME] == 60
     assert entry.data[CONF_MEMORY_MODE] == MIGRATED_MEMORY_MODE
     assert entry.data[CONF_MEMORY_MAX_TURNS] == 12
     assert entry.data[CONF_MEMORY_MAX_CHARACTERS] == MIGRATED_MEMORY_MAX_CHARACTERS

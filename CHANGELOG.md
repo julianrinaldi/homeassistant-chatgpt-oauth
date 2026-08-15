@@ -2,6 +2,29 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.5.0] - 2026-08-15
+
+### Added
+
+- Opt-in current-user context that sends only the initiating Home Assistant user's resolved display name.
+- Opt-in voice-satellite, associated-device, and current-room context using human-readable labels rather than registry IDs.
+- Optional current-room entity context, limited to 40 relevant entities already exposed to Assist.
+- Per-profile limits of 1–10 Home Assistant tool calls and 10–120 seconds of combined tool execution time.
+- Detection for repeated identical calls, repeated target failures, alternating no-progress calls, excessive hosted web-search actions, and tool calls attempted after a final answer is available.
+- A `chatgpt_oauth.conversation_finished` event with response timing, model, tool-usage, success, listening, satellite-device, and area metadata.
+
+### Privacy and reliability
+
+- User, satellite, room, and room-entity prompt context is disabled by default.
+- Request context never includes opaque internal IDs, the configured home name, address, coordinates, or unrelated household members. The existing web-search location controls remain separate.
+- Completion events never include prompts, assistant responses, OAuth information, attachments, or tool arguments.
+- Tool safety stops now return a specific natural-language explanation instead of the generic maximum-iterations error.
+
+### Compatibility
+
+- Config entries migrate to version 11 with all new context settings off, a five-call default, and a 60-second tool-time default.
+- Existing OAuth credentials, assistant profiles, entities, actions, and automations remain compatible.
+
 ## [1.4.0] - 2026-08-15
 
 ### Added
@@ -177,4 +200,5 @@ All notable user-facing changes are documented in this file.
 [1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1
 [1.3.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.1...v1.3.0
 [1.3.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.0...v1.3.1
+[1.5.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.1...v1.4.0

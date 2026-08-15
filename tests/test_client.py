@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+from homeassistant.helpers import llm
 import pytest
 
 from custom_components.openai_oauth_conversation.client import (
+    ChatGPTOAuthClient,
     _render_response_text,
     _validate_required_web_search,
     build_request_headers,
@@ -24,6 +28,7 @@ from custom_components.openai_oauth_conversation.exceptions import (
 )
 from custom_components.openai_oauth_conversation.models import MODEL_PROFILES
 from custom_components.openai_oauth_conversation.responses import (
+    ChatGPTTurn,
     WebCitation,
     WebSearchAction,
 )
@@ -204,3 +209,127 @@ def test_source_rendering_can_be_hidden_for_voice_responses() -> None:
     )
     assert "Sources:" in cited
     assert "https://example.com/current" in cited
+
+
+async def test_tool_response_stops_a_repeated_completed_action() -> None:
+    """The client returns a precise safety response instead of a generic error."""
+    call = llm.ToolInput(
+        tool_name="HassTurnOff",
+        tool_args={"entity_id": "light.kitchen"},
+        id="call-1",
+    )
+    repeated = llm.ToolInput(
+        tool_name="HassTurnOff",
+        tool_args={"entity_id": "light.kitchen"},
+        id="call-2",
+    )
+    client = object.__new__(ChatGPTOAuthClient)
+    client._async_create_turn = AsyncMock(
+        side_effect=[
+            ChatGPTTurn(text="", function_calls=[call], raw_events=[]),
+            ChatGPTTurn(text="", function_calls=[repeated], raw_events=[]),
+        ]
+    )
+    api = SimpleNamespace(
+        tools=[],
+        custom_serializer=None,
+        async_call_tool=AsyncMock(return_value={"success": True}),
+    )
+
+    result = await client.async_create_tool_response(
+        model="gpt-5.6-terra",
+        instructions="Help.",
+        user_text="Turn it off",
+        llm_api=api,
+        max_tool_calls=5,
+        max_tool_time=60,
+    )
+
+    assert result.tool_error_type == "repeated_identical_tool_call"
+    assert result.tool_call_count == 1
+    assert result.tool_names == ["HassTurnOff"]
+    assert "already completed" in result.text
+    api.async_call_tool.assert_awaited_once()
+
+
+async def test_tool_response_stops_after_a_completed_answer() -> None:
+    """A final answer prevents a redundant follow-up tool from running."""
+    client = object.__new__(ChatGPTOAuthClient)
+    client._async_create_turn = AsyncMock(
+        side_effect=[
+            ChatGPTTurn(
+                text="",
+                function_calls=[
+                    llm.ToolInput(tool_name="GetLiveContext", tool_args={}, id="one")
+                ],
+                raw_events=[],
+            ),
+            ChatGPTTurn(
+                text="The kitchen light is now off.",
+                function_calls=[
+                    llm.ToolInput(
+                        tool_name="HassTurnOff",
+                        tool_args={"entity_id": "light.kitchen"},
+                        id="two",
+                    )
+                ],
+                raw_events=[],
+            ),
+        ]
+    )
+    api = SimpleNamespace(
+        tools=[],
+        custom_serializer=None,
+        async_call_tool=AsyncMock(return_value={"state": "off"}),
+    )
+
+    result = await client.async_create_tool_response(
+        model="gpt-5.6-terra",
+        instructions="Help.",
+        user_text="Turn it off",
+        llm_api=api,
+        max_tool_calls=5,
+        max_tool_time=60,
+    )
+
+    assert result.text == "The kitchen light is now off."
+    assert result.tool_error_type is None
+    assert result.tool_call_count == 1
+    api.async_call_tool.assert_awaited_once()
+
+
+async def test_tool_response_enforces_aggregate_time_limit() -> None:
+    """A slow Home Assistant tool produces the configured timeout explanation."""
+
+    async def slow_tool(_call: llm.ToolInput) -> dict[str, bool]:
+        await asyncio.sleep(0.05)
+        return {"success": True}
+
+    client = object.__new__(ChatGPTOAuthClient)
+    client._async_create_turn = AsyncMock(
+        return_value=ChatGPTTurn(
+            text="",
+            function_calls=[
+                llm.ToolInput(tool_name="SlowTool", tool_args={}, id="slow")
+            ],
+            raw_events=[],
+        )
+    )
+    api = SimpleNamespace(
+        tools=[],
+        custom_serializer=None,
+        async_call_tool=AsyncMock(side_effect=slow_tool),
+    )
+
+    result = await client.async_create_tool_response(
+        model="gpt-5.6-terra",
+        instructions="Help.",
+        user_text="Do it",
+        llm_api=api,
+        max_tool_calls=5,
+        max_tool_time=0.01,
+    )
+
+    assert result.tool_error_type == "tool_time_limit"
+    assert result.tool_call_count == 1
+    assert "configured time limit" in result.text

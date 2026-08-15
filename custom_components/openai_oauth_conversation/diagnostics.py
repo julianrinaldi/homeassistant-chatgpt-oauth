@@ -68,6 +68,20 @@ def _profile_diagnostics(
         },
         "home_assistant_control_enabled": settings.enable_home_assistant_control,
         "history_tools_enabled": settings.enable_history_tools,
+        "request_context": {
+            "user_display_name_enabled": settings.include_user_context,
+            "satellite_and_room_labels_enabled": (
+                settings.include_satellite_room_context
+            ),
+            "exposed_room_entities_enabled": settings.include_room_entities,
+            "internal_ids_sent_to_model": False,
+            "home_location_sent_by_request_context": False,
+        },
+        "tool_safety": {
+            "maximum_calls_per_turn": settings.max_tool_calls,
+            "maximum_total_time_seconds": settings.max_tool_time,
+            "loop_detection": True,
+        },
         "memory": {
             "mode": settings.memory_mode,
             "maximum_recent_turns": settings.memory_max_turns,
@@ -141,6 +155,9 @@ async def async_get_config_entry_diagnostics(
             "read_only_history_tools": True,
             "conversation_memory_policies": True,
             "precise_web_search_location": True,
+            "user_satellite_and_room_context": True,
+            "bounded_tool_loops": True,
+            "privacy_safe_conversation_finished_event": True,
         },
         "assistant_profiles": profiles,
     }

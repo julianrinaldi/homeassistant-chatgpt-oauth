@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import time
 from typing import Any, Literal
 
 from homeassistant.components import conversation
@@ -12,7 +14,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .client import ChatGPTOAuthClient
-from .const import DOMAIN, HISTORY_LLM_API_ID, SUBENTRY_TYPE_ASSISTANT
+from .const import (
+    DOMAIN,
+    EVENT_CONVERSATION_FINISHED,
+    HISTORY_LLM_API_ID,
+    SUBENTRY_TYPE_ASSISTANT,
+)
 from .exceptions import ChatGPTOAuthError
 from .memory import (
     ConversationMemoryManager,
@@ -20,8 +27,19 @@ from .memory import (
     combine_memory_instructions,
 )
 from .profiles import AssistantProfileSettings, resolve_assistant_profile
+from .request_context import (
+    ResolvedRequestContext,
+    async_resolve_request_context,
+    combine_request_context,
+)
 
 LLM_HASS_API = "assist"
+TOOL_SAFETY_INSTRUCTIONS = (
+    "Use the fewest Home Assistant and web-search tools needed. Stop calling tools "
+    "as soon as the request is satisfied. Do not repeat an action with identical "
+    "arguments, alternate between tools that return no new information, or retry a "
+    "failing device action more than once."
+)
 
 
 async def async_setup_entry(
@@ -97,6 +115,11 @@ class ChatGPTOAuthConversationEntity(
             "thinking_level": settings.reasoning_effort,
             "home_assistant_control": settings.enable_home_assistant_control,
             "history_tools": settings.enable_history_tools,
+            "user_context": settings.include_user_context,
+            "satellite_room_context": settings.include_satellite_room_context,
+            "room_entities": settings.include_room_entities,
+            "max_tool_calls_per_turn": settings.max_tool_calls,
+            "max_total_tool_time": settings.max_tool_time,
             "web_search_mode": settings.web_search.mode,
             "memory_mode": settings.memory_mode,
             "memory_max_turns": settings.memory_max_turns,
@@ -123,28 +146,43 @@ class ChatGPTOAuthConversationEntity(
         """Handle one Assist request using this profile's tools and memory."""
         client = self._client
         settings = self._settings
+        started = time.monotonic()
+        request_context = ResolvedRequestContext()
+        result = None
+        conversation_result = None
+        error_type: str | None = None
         try:
-            await chat_log.async_provide_llm_data(
-                user_input.as_llm_context(DOMAIN),
-                _llm_api_selection(settings),
-                settings.prompt,
-                user_input.extra_system_prompt,
+            request_context = await async_resolve_request_context(
+                self.hass,
+                user_input,
+                settings,
             )
-        except conversation.ConverseError as err:
-            return err.as_conversation_result()
+            try:
+                await chat_log.async_provide_llm_data(
+                    user_input.as_llm_context(DOMAIN),
+                    _llm_api_selection(settings),
+                    settings.prompt,
+                    user_input.extra_system_prompt,
+                )
+            except conversation.ConverseError as err:
+                error_type = _event_error_type(err)
+                conversation_result = err.as_conversation_result()
+                return conversation_result
 
-        instructions = _chat_log_instructions(chat_log) or settings.prompt
-        prepared = await self._memory_manager.async_prepare(
-            chat_log=chat_log,
-            client=client,
-            settings=settings,
-            conversation_id=(
-                user_input.conversation_id or getattr(chat_log, "conversation_id", None)
-            ),
-        )
-        instructions = combine_memory_instructions(instructions, prepared)
-        try:
+            instructions = _chat_log_instructions(chat_log) or settings.prompt
+            prepared = await self._memory_manager.async_prepare(
+                chat_log=chat_log,
+                client=client,
+                settings=settings,
+                conversation_id=(
+                    user_input.conversation_id
+                    or getattr(chat_log, "conversation_id", None)
+                ),
+            )
+            instructions = combine_memory_instructions(instructions, prepared)
+            instructions = combine_request_context(instructions, request_context)
             if chat_log.llm_api:
+                instructions = f"{instructions.rstrip()}\n\n{TOOL_SAFETY_INSTRUCTIONS}"
                 result = await client.async_create_tool_response(
                     model=settings.model,
                     reasoning_effort=settings.reasoning_effort,
@@ -152,6 +190,8 @@ class ChatGPTOAuthConversationEntity(
                     input_items=prepared.input_items,
                     llm_api=chat_log.llm_api,
                     web_search=settings.web_search,
+                    max_tool_calls=settings.max_tool_calls,
+                    max_tool_time=settings.max_tool_time,
                 )
             else:
                 result = await client.async_create_response(
@@ -161,25 +201,50 @@ class ChatGPTOAuthConversationEntity(
                     input_items=prepared.input_items,
                     web_search=settings.web_search,
                 )
-        except ChatGPTOAuthError as err:
-            raise HomeAssistantError(str(err)) from err
 
-        chat_log.async_add_assistant_content_without_tools(
-            conversation.AssistantContent(
-                agent_id=user_input.agent_id,
-                content=result.raw_text or result.text,
+            error_type = result.tool_error_type
+            chat_log.async_add_assistant_content_without_tools(
+                conversation.AssistantContent(
+                    agent_id=user_input.agent_id,
+                    content=result.raw_text or result.text,
+                )
             )
-        )
-        conversation_result = conversation.async_get_result_from_chat_log(
-            user_input,
-            chat_log,
-        )
-        _apply_web_search_presentation(
-            conversation_result,
-            result,
-            include_sources=settings.web_search.include_sources,
-        )
-        return conversation_result
+            conversation_result = conversation.async_get_result_from_chat_log(
+                user_input,
+                chat_log,
+            )
+            _apply_web_search_presentation(
+                conversation_result,
+                result,
+                include_sources=settings.web_search.include_sources,
+            )
+            return conversation_result
+        except ChatGPTOAuthError as err:
+            error_type = _event_error_type(err)
+            raise HomeAssistantError(str(err)) from err
+        except Exception as err:
+            error_type = error_type or _event_error_type(err)
+            raise
+        finally:
+            self.hass.bus.async_fire(
+                EVENT_CONVERSATION_FINISHED,
+                _conversation_finished_event_data(
+                    agent_entity_id=self.entity_id,
+                    conversation_id=(
+                        getattr(conversation_result, "conversation_id", None)
+                        or user_input.conversation_id
+                        or getattr(chat_log, "conversation_id", None)
+                    ),
+                    settings=settings,
+                    duration_ms=round((time.monotonic() - started) * 1000),
+                    result=result,
+                    continued_listening=bool(
+                        getattr(conversation_result, "continue_conversation", False)
+                    ),
+                    error_type=error_type,
+                    request_context=request_context,
+                ),
+            )
 
 
 # Backward-compatible class name for downstream imports.
@@ -238,3 +303,40 @@ def _chat_log_input_items(
 ) -> list[dict[str, Any]]:
     """Backward-compatible wrapper for downstream imports and tests."""
     return chat_log_input_items(chat_log)
+
+
+def _event_error_type(error: BaseException) -> str:
+    """Return a stable event-safe error category without exception text."""
+    name = type(error).__name__
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def _conversation_finished_event_data(
+    *,
+    agent_entity_id: str | None,
+    conversation_id: str | None,
+    settings: AssistantProfileSettings,
+    duration_ms: int,
+    result: Any,
+    continued_listening: bool,
+    error_type: str | None,
+    request_context: ResolvedRequestContext,
+) -> dict[str, Any]:
+    """Build a stable event payload that deliberately excludes conversation data."""
+    return {
+        "agent_entity_id": agent_entity_id,
+        "conversation_id": conversation_id,
+        "model": settings.model,
+        "thinking_level": settings.reasoning_effort,
+        "duration_ms": duration_ms,
+        "tool_names": result.tool_names if result is not None else [],
+        "tool_call_count": result.tool_call_count if result is not None else 0,
+        "web_search_used": bool(
+            result is not None and (result.searches or result.citations)
+        ),
+        "continued_listening": continued_listening,
+        "success": error_type is None,
+        "error_type": error_type,
+        "satellite_device_id": request_context.satellite_device_id,
+        "area_id": request_context.area_id,
+    }

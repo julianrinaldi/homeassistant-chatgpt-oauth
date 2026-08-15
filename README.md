@@ -20,6 +20,9 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, Ope
 ## Features
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
+- Opt-in current-user, voice-satellite, device, room, and exposed room-entity context.
+- Configurable tool-call and tool-time limits with repeated-call and no-progress detection.
+- Privacy-safe `chatgpt_oauth.conversation_finished` events for automations and diagnostics.
 - Native OpenAI `web_search` support with voice-friendly answers and retained citation metadata.
 - Configurable disabled, automatic, or required web-search behavior.
 - Low, medium, or high search context; live or cache/index-only access; optional approximate Home Assistant location.
@@ -87,13 +90,15 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 3. Search for **ChatGPT OAuth**.
 4. Enter a friendly name and select a model.
 5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
-6. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
-7. Optionally customize the system prompt.
-8. Choose a thinking level supported by the selected model.
-9. Open the displayed ChatGPT sign-in link.
-10. Complete sign-in in the browser.
-11. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
-12. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
+6. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
+7. Set the maximum Home Assistant tool calls and combined tool time for each message.
+8. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
+9. Optionally customize the system prompt.
+10. Choose a thinking level supported by the selected model.
+11. Open the displayed ChatGPT sign-in link.
+12. Complete sign-in in the browser.
+13. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
+14. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
 
 The callback URL contains a short-lived authorization code. Treat it as sensitive and do not post it in issues or logs.
 
@@ -218,6 +223,58 @@ After setup, choose the new conversation agent in an Assist pipeline:
 When **Enable Home Assistant control** is turned on, the agent receives Home Assistant's Assist tool API and may inspect or control entities exposed to Assist. Turn the option off under **Settings → Devices & services → ChatGPT OAuth → Reconfigure** for conversation-only behavior.
 
 Only entities explicitly exposed to Assist are made available through Home Assistant's LLM tools. The model can still make mistakes; use normal Home Assistant permissions and avoid exposing safety-critical actions.
+
+### Current user, satellite, and room
+
+Each assistant profile has three privacy controls, all disabled by default:
+
+| Setting | Information sent to ChatGPT |
+|---|---|
+| **Use the current user's display name** | The resolved display name of the Home Assistant user who started this request. Internal user IDs and other users are not included. |
+| **Use the voice satellite and current room** | Human-readable labels for the satellite, its associated device, and its Home Assistant area. Device, entity, and area IDs are not included. |
+| **Include exposed entities in the current room** | Names, types, and current states for up to 40 relevant entities in that area. Only entities already exposed to Assist are included. |
+
+This lets phrases such as “turn the lights off in here,” “is it warm in this room?”, and “what window is open near me?” resolve against the satellite's current area. The current user's display name can also help the model choose user-labeled calendar and notification entities.
+
+The request context never adds the configured home name, address, latitude, longitude, or unrelated household members. The separate web-search location settings remain independent; **Share precise home location** still sends the location details described in [OpenAI web search](#openai-web-search) when enabled.
+
+### Tool safety limits
+
+Each assistant profile can allow **1–10 Home Assistant tool calls per message** and **10–120 seconds of combined Home Assistant tool execution time**. The defaults are 5 calls and 60 seconds.
+
+The integration also stops repeated calls with identical arguments, repeated failures for one target, alternating no-progress calls, more than 10 hosted web-search actions, and new tool calls after a completed tool result has already produced a final answer. Instead of a generic iteration error, Assist receives a specific explanation such as: “I could not complete that because the same device action failed repeatedly.”
+
+### Conversation-completed event
+
+After every Assist request, the integration fires `chatgpt_oauth.conversation_finished`. The event contains operational metadata only:
+
+- `agent_entity_id`, `conversation_id`, `model`, and `thinking_level`
+- `duration_ms`, `tool_names`, `tool_call_count`, and `web_search_used`
+- `continued_listening`, `success`, and `error_type`
+- `satellite_device_id` and `area_id` when Home Assistant supplied enough satellite context
+
+It never contains the user prompt, assistant response, OAuth data, attachments, or tool arguments. The satellite device and area IDs remain inside Home Assistant's local event bus and are useful for per-room automations.
+
+Example failure notification:
+
+```yaml
+automation:
+  - alias: Notify when ChatGPT OAuth Assist fails
+    triggers:
+      - trigger: event
+        event_type: chatgpt_oauth.conversation_finished
+    conditions:
+      - condition: template
+        value_template: "{{ not trigger.event.data.success }}"
+    actions:
+      - action: persistent_notification.create
+        data:
+          title: ChatGPT OAuth Assist issue
+          message: >-
+            {{ trigger.event.data.agent_entity_id }} ended with
+            {{ trigger.event.data.error_type or 'an unknown error' }} after
+            {{ trigger.event.data.duration_ms }} ms.
+```
 
 ## Generate text or data
 
@@ -487,6 +544,7 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
+- Upgrading from 1.4.0 to 1.5.0 preserves existing settings, keeps all user and room context disabled, and adds five-call and 60-second tool-safety defaults.
 - Upgrading from 1.2.0 to 1.2.1 changes only repository ownership metadata and public release packaging; Home Assistant configuration and runtime behavior are unchanged.
 - Upgrading from 1.1.1 to 1.2.0 adds configurable source presentation. Existing entries default to voice-friendly text without appended sources; re-enable **Include sources in response text** to preserve the v1.1 behavior.
 - Upgrading from 1.1.0 to 1.1.1 changes only HACS packaging and release automation; Home Assistant configuration and runtime behavior are unchanged.

@@ -1,5 +1,33 @@
 # Migrating ChatGPT OAuth
 
+## From 1.4.0 to 1.5.0
+
+Version 1.5.0 adds optional user, voice-satellite, room, and room-entity context; configurable Home Assistant tool limits; loop detection; and privacy-safe conversation completion events.
+
+### Preserved automatically
+
+- Existing config entries and OAuth credentials
+- Conversation and AI Task entity identities
+- Assistant profiles, models, prompts, thinking levels, memory, and web-search settings
+- Home Assistant control and history-tool settings
+- Existing actions and automations
+
+No reauthentication is required. Entries migrate automatically to config-entry version 11.
+
+### New defaults
+
+Existing and new assistant profiles use these defaults:
+
+```text
+Current user's display name: Disabled
+Voice satellite and current room: Disabled
+Exposed entities in the current room: Disabled
+Maximum Home Assistant tool calls: 5
+Maximum total tool time: 60 seconds
+```
+
+Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** to enable only the context appropriate for each assistant. Precise web-search location remains a separate setting and is not enabled by this migration.
+
 ## From 1.2.0 to 1.2.1
 
 Version 1.2.1 is a repository and release-packaging cleanup. It does not change integration runtime behavior or stored Home Assistant data.

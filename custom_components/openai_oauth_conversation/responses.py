@@ -82,6 +82,9 @@ class ChatGPTTextResponse:
     citations: list[WebCitation] = field(default_factory=list)
     searches: list[WebSearchAction] = field(default_factory=list)
     raw_text: str | None = None
+    tool_names: list[str] = field(default_factory=list)
+    tool_call_count: int = 0
+    tool_error_type: str | None = None
 
     @property
     def sources(self) -> list[WebSource]:
@@ -107,6 +110,9 @@ class ChatGPTDataResponse:
     raw_events: list[dict[str, Any]]
     citations: list[WebCitation] = field(default_factory=list)
     searches: list[WebSearchAction] = field(default_factory=list)
+    tool_names: list[str] = field(default_factory=list)
+    tool_call_count: int = 0
+    tool_error_type: str | None = None
 
     @property
     def sources(self) -> list[WebSource]:

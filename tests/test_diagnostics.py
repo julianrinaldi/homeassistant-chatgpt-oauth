@@ -67,6 +67,18 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     assert profile["model"]["slug"] == "gpt-5.6-terra"
     assert profile["model"]["thinking_level"] == "high"
     assert profile["model"]["supports_web_search"] is True
+    assert profile["request_context"] == {
+        "user_display_name_enabled": False,
+        "satellite_and_room_labels_enabled": False,
+        "exposed_room_entities_enabled": False,
+        "internal_ids_sent_to_model": False,
+        "home_location_sent_by_request_context": False,
+    }
+    assert profile["tool_safety"] == {
+        "maximum_calls_per_turn": 5,
+        "maximum_total_time_seconds": 60,
+        "loop_detection": True,
+    }
     assert profile["web_search"] == {
         "mode": "required",
         "context_size": "high",

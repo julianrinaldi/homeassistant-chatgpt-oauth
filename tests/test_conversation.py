@@ -8,12 +8,17 @@ from homeassistant.components import conversation
 
 from custom_components.openai_oauth_conversation.const import (
     CONF_ENABLE_HASS_CONTROL,
+    EVENT_CONVERSATION_FINISHED,
 )
 from custom_components.openai_oauth_conversation.conversation import (
     ChatGPTOAuthConversationEntity,
     _apply_web_search_presentation,
     _chat_log_input_items,
     _chat_log_instructions,
+    _conversation_finished_event_data,
+)
+from custom_components.openai_oauth_conversation.request_context import (
+    ResolvedRequestContext,
 )
 from custom_components.openai_oauth_conversation.responses import (
     ChatGPTTextResponse,
@@ -135,3 +140,52 @@ def test_visible_sources_do_not_create_a_duplicate_card() -> None:
 
     assert response.speech == result.text
     assert response.card is None
+
+
+def test_conversation_finished_event_is_metadata_only() -> None:
+    """Completion diagnostics never contain prompts, answers, or tool arguments."""
+    result = ChatGPTTextResponse(
+        text="Sensitive assistant answer",
+        raw_text="Sensitive assistant answer",
+        raw_events=[{"request": "Sensitive prompt"}],
+        tool_names=["HassTurnOff", "web_search"],
+        tool_call_count=2,
+    )
+    event_data = _conversation_finished_event_data(
+        agent_entity_id="conversation.chatgpt_oauth",
+        conversation_id="conversation-123",
+        settings=SimpleNamespace(
+            model="gpt-5.6-terra",
+            reasoning_effort="medium",
+        ),
+        duration_ms=850,
+        result=result,
+        continued_listening=True,
+        error_type=None,
+        request_context=ResolvedRequestContext(
+            satellite_device_id="satellite-device-id",
+            area_id="kitchen-area-id",
+        ),
+    )
+
+    assert EVENT_CONVERSATION_FINISHED == "chatgpt_oauth.conversation_finished"
+    assert set(event_data) == {
+        "agent_entity_id",
+        "conversation_id",
+        "model",
+        "thinking_level",
+        "duration_ms",
+        "tool_names",
+        "tool_call_count",
+        "web_search_used",
+        "continued_listening",
+        "success",
+        "error_type",
+        "satellite_device_id",
+        "area_id",
+    }
+    assert event_data["success"] is True
+    assert event_data["tool_names"] == ["HassTurnOff", "web_search"]
+    serialized = str(event_data)
+    assert "Sensitive prompt" not in serialized
+    assert "Sensitive assistant answer" not in serialized

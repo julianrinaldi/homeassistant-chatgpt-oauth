@@ -12,6 +12,11 @@ from custom_components.openai_oauth_conversation.auth import OAuthTokenData
 from custom_components.openai_oauth_conversation.const import (
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
+    CONF_INCLUDE_ROOM_ENTITIES,
+    CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
+    CONF_INCLUDE_USER_CONTEXT,
+    CONF_MAX_TOOL_CALLS,
+    CONF_MAX_TOOL_TIME,
     CONF_MEMORY_MAX_CHARACTERS,
     CONF_MEMORY_MAX_TURNS,
     CONF_MEMORY_MODE,
@@ -69,6 +74,17 @@ async def test_english_profile_translations(hass) -> None:
         ]
         == "Share precise home location"
     )
+    assert (
+        config[
+            f"component.{DOMAIN}.config.step.reconfigure.data."
+            "include_satellite_room_context"
+        ]
+        == "Use the voice satellite and current room"
+    )
+    assert subentries[
+        f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure."
+        "data_description.include_user_context"
+    ].startswith("Shares only the initiating Home Assistant user's resolved")
 
 
 async def test_full_user_flow(hass) -> None:
@@ -90,6 +106,11 @@ async def test_full_user_flow(hass) -> None:
             "name": "Primary account",
             CONF_ENABLE_HASS_CONTROL: False,
             CONF_ENABLE_HISTORY_TOOLS: True,
+            CONF_INCLUDE_USER_CONTEXT: True,
+            CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: True,
+            CONF_INCLUDE_ROOM_ENTITIES: True,
+            CONF_MAX_TOOL_CALLS: 7,
+            CONF_MAX_TOOL_TIME: 45,
             CONF_MEMORY_MODE: "summarized",
             CONF_MEMORY_MAX_TURNS: 8,
             CONF_MEMORY_MAX_CHARACTERS: 12000,
@@ -144,6 +165,11 @@ async def test_full_user_flow(hass) -> None:
     assert result["title"] == "Primary account"
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
     assert result["data"][CONF_ENABLE_HISTORY_TOOLS] is True
+    assert result["data"][CONF_INCLUDE_USER_CONTEXT] is True
+    assert result["data"][CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is True
+    assert result["data"][CONF_INCLUDE_ROOM_ENTITIES] is True
+    assert result["data"][CONF_MAX_TOOL_CALLS] == 7
+    assert result["data"][CONF_MAX_TOOL_TIME] == 45
     assert result["data"][CONF_MEMORY_MODE] == "summarized"
     assert result["data"][CONF_MEMORY_MAX_TURNS] == 8
     assert result["data"][CONF_MEMORY_MAX_CHARACTERS] == 12000

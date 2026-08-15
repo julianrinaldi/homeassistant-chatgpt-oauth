@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.4.0"
+INTEGRATION_VERSION: Final = "1.5.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -22,6 +22,11 @@ CONF_REFRESH_TOKEN: Final = "refresh_token"
 CONF_EXPIRES: Final = "expires"
 CONF_ENABLE_HASS_CONTROL: Final = "enable_home_assistant_control"
 CONF_ENABLE_HISTORY_TOOLS: Final = "enable_history_tools"
+CONF_INCLUDE_USER_CONTEXT: Final = "include_user_context"
+CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = "include_satellite_room_context"
+CONF_INCLUDE_ROOM_ENTITIES: Final = "include_room_entities"
+CONF_MAX_TOOL_CALLS: Final = "max_tool_calls_per_turn"
+CONF_MAX_TOOL_TIME: Final = "max_total_tool_time"
 CONF_MODEL: Final = "model"
 CONF_PROMPT: Final = "prompt"
 CONF_REASONING_EFFORT: Final = "reasoning_effort"
@@ -51,6 +56,11 @@ MEMORY_MODES: Final = (
 DEFAULT_NAME: Final = INTEGRATION_NAME
 DEFAULT_ENABLE_HASS_CONTROL: Final = True
 DEFAULT_ENABLE_HISTORY_TOOLS: Final = False
+DEFAULT_INCLUDE_USER_CONTEXT: Final = False
+DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = False
+DEFAULT_INCLUDE_ROOM_ENTITIES: Final = False
+DEFAULT_MAX_TOOL_CALLS: Final = 5
+DEFAULT_MAX_TOOL_TIME: Final = 60
 DEFAULT_MODEL: Final = "gpt-5.6-terra"
 DEFAULT_PROMPT: Final = (
     "You are a helpful voice assistant for Home Assistant. "
@@ -76,6 +86,14 @@ MAX_MEMORY_MAX_CHARACTERS: Final = 100_000
 MAX_MEMORY_SUMMARY_CHARACTERS: Final = 4_000
 MAX_MEMORY_SUMMARY_SOURCE_CHARACTERS: Final = 60_000
 MAX_MEMORY_SUMMARY_CACHE_ENTRIES: Final = 100
+MIN_TOOL_CALLS: Final = 1
+MAX_TOOL_CALLS: Final = 10
+MIN_TOOL_TIME: Final = 10
+MAX_TOOL_TIME: Final = 120
+MAX_WEB_SEARCH_ACTIONS: Final = 10
+MAX_ROOM_CONTEXT_ENTITIES: Final = 40
+
+EVENT_CONVERSATION_FINISHED: Final = "chatgpt_oauth.conversation_finished"
 
 DEFAULT_AI_TASK_SYSTEM_PROMPT: Final = (
     "You are a Home Assistant expert. Follow the user's task instructions and "
