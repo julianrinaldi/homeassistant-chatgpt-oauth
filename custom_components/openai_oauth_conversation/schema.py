@@ -1,14 +1,14 @@
 """Structured-output conversion and validation for ChatGPT OAuth."""
+
 from __future__ import annotations
 
 import json
 from typing import Any
 
-import voluptuous as vol
-from voluptuous_openapi import convert
-
 from homeassistant.helpers import llm
 from homeassistant.util import slugify
+import voluptuous as vol
+from voluptuous_openapi import convert
 
 from .exceptions import ChatGPTOAuthError, StructuredOutputError
 
@@ -294,6 +294,5 @@ def parse_and_validate_structured_text(
             validation_error = first_error
 
         raise StructuredOutputError(
-            "Generated data did not match the requested structure: "
-            f"{validation_error}"
+            f"Generated data did not match the requested structure: {validation_error}"
         ) from validation_error

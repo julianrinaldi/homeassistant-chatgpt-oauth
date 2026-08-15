@@ -1,4 +1,5 @@
 """Tests for OpenAI web-search options and tool declarations."""
+
 from __future__ import annotations
 
 from types import MethodType, SimpleNamespace
@@ -53,9 +54,7 @@ def test_web_search_tool_uses_supported_controls() -> None:
 
 def test_preview_fallback_omits_unsupported_controls() -> None:
     """The legacy preview tool never receives filters or cache-only controls."""
-    hass = SimpleNamespace(
-        config=SimpleNamespace(country=None, time_zone=None)
-    )
+    hass = SimpleNamespace(config=SimpleNamespace(country=None, time_zone=None))
     options = WebSearchOptions(
         mode=WEB_SEARCH_REQUIRED,
         context_size="medium",
@@ -124,9 +123,7 @@ def test_voice_friendly_search_instructions_do_not_request_spoken_sources() -> N
 def test_source_display_resolves_from_config_and_per_call_override() -> None:
     """The account default can be overridden for one integration action."""
     client = object.__new__(ChatGPTOAuthClient)
-    client.entry = SimpleNamespace(
-        data={CONF_WEB_SEARCH_INCLUDE_SOURCES: True}
-    )
+    client.entry = SimpleNamespace(data={CONF_WEB_SEARCH_INCLUDE_SOURCES: True})
 
     assert client.resolve_web_search_options().include_sources is True
     assert (
@@ -171,9 +168,7 @@ async def test_domain_allowlist_is_never_silently_removed() -> None:
 @pytest.mark.asyncio
 async def test_cache_only_search_is_never_silently_made_live() -> None:
     """A compatibility retry must not remove a cache-only constraint."""
-    client = _client_with_rejected_request(
-        "Unsupported parameter: external_web_access"
-    )
+    client = _client_with_rejected_request("Unsupported parameter: external_web_access")
     with pytest.raises(RequestValidationError, match="refusing to enable live"):
         await client._async_create_turn(
             model="gpt-5.6-terra",

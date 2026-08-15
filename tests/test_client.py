@@ -1,4 +1,5 @@
 """Tests for request construction and serialization."""
+
 from __future__ import annotations
 
 import json
@@ -61,9 +62,7 @@ def test_payload_for_every_model_and_level(model: str) -> None:
         )
         assert responses_lite is profile.responses_lite
         assert payload["model"] == model
-        assert payload["reasoning"]["effort"] == (
-            "max" if level == "ultra" else level
-        )
+        assert payload["reasoning"]["effort"] == ("max" if level == "ultra" else level)
         assert payload["stream"] is True
         assert payload["store"] is False
 
@@ -187,12 +186,15 @@ def test_source_rendering_can_be_hidden_for_voice_responses() -> None:
         )
     ]
 
-    assert _render_response_text(
-        text,
-        citations,
-        searches,
-        WebSearchOptions(mode="auto", include_sources=False),
-    ) == text
+    assert (
+        _render_response_text(
+            text,
+            citations,
+            searches,
+            WebSearchOptions(mode="auto", include_sources=False),
+        )
+        == text
+    )
 
     cited = _render_response_text(
         text,

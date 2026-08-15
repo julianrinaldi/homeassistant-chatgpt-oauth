@@ -1,19 +1,19 @@
 """Async client for the hosted ChatGPT/Codex OAuth Responses backend."""
+
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+import json
 from typing import Any
 
 import aiohttp
-import voluptuous as vol
-from voluptuous_openapi import convert
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.json import json_dumps
+import voluptuous as vol
+from voluptuous_openapi import convert
 
 from .auth import ConfigEntryLike, OAuthTokenManager, extract_account_id
 from .const import (
@@ -232,9 +232,7 @@ def build_turn_payload(
             "store": False,
         }
         if include:
-            payload["include"] = list(
-                dict.fromkeys([*payload["include"], *include])
-            )
+            payload["include"] = list(dict.fromkeys([*payload["include"], *include]))
         if text_format is not None:
             payload["text"]["format"] = text_format
         return payload, True
@@ -407,18 +405,22 @@ class ChatGPTOAuthClient:
             else bool(include_sources)
         )
         resolved_live_access = (
-            bool(self.entry.data.get(
-                CONF_WEB_SEARCH_LIVE_ACCESS,
-                DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-            ))
+            bool(
+                self.entry.data.get(
+                    CONF_WEB_SEARCH_LIVE_ACCESS,
+                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
+                )
+            )
             if live_access is None
             else bool(live_access)
         )
         resolved_location = (
-            bool(self.entry.data.get(
-                CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-            ))
+            bool(
+                self.entry.data.get(
+                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
+                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                )
+            )
             if use_home_assistant_location is None
             else bool(use_home_assistant_location)
         )
@@ -480,10 +482,9 @@ class ChatGPTOAuthClient:
 
             if response.status >= 400:
                 text = await response.text()
-                request_id = (
-                    response.headers.get("x-request-id")
-                    or response.headers.get("request-id")
-                )
+                request_id = response.headers.get(
+                    "x-request-id"
+                ) or response.headers.get("request-id")
                 response.release()
                 error = exception_from_http_response(
                     response.status,
@@ -611,8 +612,7 @@ class ChatGPTOAuthClient:
 
                 if (
                     not retried_without_sources
-                    and "web_search_call.action.sources"
-                    in payload.get("include", [])
+                    and "web_search_call.action.sources" in payload.get("include", [])
                     and unsupported
                     and (
                         "web_search_call.action.sources" in message
@@ -662,10 +662,7 @@ class ChatGPTOAuthClient:
                                 "The hosted backend rejected cache/index-only "
                                 "web search; refusing to enable live access"
                             ) from err
-                        if (
-                            field_name == "filters"
-                            and search_options.allowed_domains
-                        ):
+                        if field_name == "filters" and search_options.allowed_domains:
                             raise RequestValidationError(
                                 "The hosted backend rejected the web-search "
                                 "domain allowlist; refusing an unrestricted search"
@@ -741,9 +738,7 @@ class ChatGPTOAuthClient:
                     elif event_type == "response.output_text.done" and not chunks:
                         chunks.append(str(data.get("text") or ""))
                     elif event_type == "response.output_text.annotation.added":
-                        citation = url_citation_from_annotation(
-                            data.get("annotation")
-                        )
+                        citation = url_citation_from_annotation(data.get("annotation"))
                         if citation is not None:
                             citations.append(citation)
 
@@ -806,9 +801,7 @@ class ChatGPTOAuthClient:
         if input_items is None:
             if content is None:
                 raise RequestValidationError("Missing user content for a response")
-            input_items = [
-                {"type": "message", "role": "user", "content": content}
-            ]
+            input_items = [{"type": "message", "role": "user", "content": content}]
         else:
             input_items = [dict(item) for item in input_items]
 
@@ -1087,9 +1080,7 @@ class ChatGPTOAuthClient:
                         "Missing user content for a tool-enabled response"
                     )
                 content = [text_part(user_text)]
-            input_items = [
-                {"type": "message", "role": "user", "content": content}
-            ]
+            input_items = [{"type": "message", "role": "user", "content": content}]
         else:
             input_items = [dict(item) for item in input_items]
 

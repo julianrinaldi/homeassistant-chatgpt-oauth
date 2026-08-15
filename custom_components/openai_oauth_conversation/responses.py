@@ -1,12 +1,13 @@
 """Response models and parsers for ChatGPT OAuth."""
+
 from __future__ import annotations
 
 import base64
 import binascii
-import json
-import struct
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+import json
+import struct
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -284,9 +285,7 @@ def web_search_actions_from_output_items(
                 call_id=str(call_id_value) if call_id_value is not None else None,
                 action=action_type,
                 query=(
-                    query.strip()
-                    if isinstance(query, str) and query.strip()
-                    else None
+                    query.strip() if isinstance(query, str) and query.strip() else None
                 ),
                 queries=queries,
                 url=action_url,

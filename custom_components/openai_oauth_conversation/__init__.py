@@ -1,9 +1,8 @@
 """ChatGPT OAuth integration for Home Assistant."""
+
 from __future__ import annotations
 
 from typing import Any, NoReturn
-
-import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ENTITY_ID, Platform
@@ -19,12 +18,18 @@ from homeassistant.exceptions import (
     HomeAssistantError,
     ServiceValidationError,
 )
-from homeassistant.helpers import config_validation as cv, selector
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import llm, selector
 from homeassistant.helpers.typing import ConfigType
+import voluptuous as vol
 
 from .client import ChatGPTOAuthClient
 from .const import (
     CONF_ENABLE_HASS_CONTROL,
+    CONF_ENABLE_HISTORY_TOOLS,
+    CONF_MEMORY_MAX_CHARACTERS,
+    CONF_MEMORY_MAX_TURNS,
+    CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -34,6 +39,10 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
+    DEFAULT_ENABLE_HISTORY_TOOLS,
+    DEFAULT_MEMORY_MAX_CHARACTERS,
+    DEFAULT_MEMORY_MAX_TURNS,
+    DEFAULT_MEMORY_MODE,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
@@ -48,6 +57,8 @@ from .const import (
     LOGGER,
     MAX_ATTACHMENTS_TOTAL_BYTES,
     MAX_IMAGE_ATTACHMENTS,
+    MIGRATED_MEMORY_MAX_CHARACTERS,
+    MIGRATED_MEMORY_MODE,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_CONTENT,
     SERVICE_WEB_SEARCH,
@@ -68,11 +79,18 @@ from .exceptions import (
     RequestValidationError,
     StructuredOutputError,
 )
+from .history_tools import create_history_api
 from .models import (
     ALL_REASONING_EFFORTS,
     get_model_profile,
     normalize_model,
     normalize_reasoning_effort,
+)
+from .profiles import (
+    assistant_profiles_fingerprint,
+    normalize_memory_max_characters,
+    normalize_memory_max_turns,
+    normalize_memory_mode,
 )
 from .responses import ChatGPTTextResponse
 from .web_search import (
@@ -118,8 +136,7 @@ def _web_search_mode_validator(value: object) -> str:
     mode = value.strip().lower()
     if mode not in PER_CALL_WEB_SEARCH_MODES:
         raise vol.Invalid(
-            "Supported web-search modes are: "
-            + ", ".join(PER_CALL_WEB_SEARCH_MODES)
+            "Supported web-search modes are: " + ", ".join(PER_CALL_WEB_SEARCH_MODES)
         )
     return mode
 
@@ -236,7 +253,13 @@ def _shared_text_fields() -> dict[vol.Marker, Any]:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register integration actions."""
+    """Register integration actions and the read-only history LLM API."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if "history_api_unregister" not in domain_data:
+        domain_data["history_api_unregister"] = llm.async_register_api(
+            hass,
+            create_history_api(hass),
+        )
 
     async def generate_content(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass, call.data["config_entry"])
@@ -416,7 +439,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 8:
+    if entry.version > 9:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -442,7 +465,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data.get(CONF_REASONING_EFFORT),
     )
     data.setdefault(CONF_PROMPT, DEFAULT_PROMPT)
-    data.setdefault(CONF_ENABLE_HASS_CONTROL, DEFAULT_ENABLE_HASS_CONTROL)
+
+    control = data.get(CONF_ENABLE_HASS_CONTROL)
+    data[CONF_ENABLE_HASS_CONTROL] = (
+        control if isinstance(control, bool) else DEFAULT_ENABLE_HASS_CONTROL
+    )
+    history_tools = data.get(CONF_ENABLE_HISTORY_TOOLS)
+    data[CONF_ENABLE_HISTORY_TOOLS] = (
+        history_tools
+        if isinstance(history_tools, bool)
+        else DEFAULT_ENABLE_HISTORY_TOOLS
+    )
+
     try:
         data[CONF_WEB_SEARCH_MODE] = normalize_web_search_mode(
             data.get(CONF_WEB_SEARCH_MODE),
@@ -461,34 +495,77 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     except ValueError:
         LOGGER.warning(
-            "Config entry %s used an invalid web-search context size; "
-            "resetting to %s",
+            "Config entry %s used an invalid web-search context size; resetting to %s",
             entry.entry_id,
             DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
         )
         data[CONF_WEB_SEARCH_CONTEXT_SIZE] = DEFAULT_WEB_SEARCH_CONTEXT_SIZE
-    include_sources = data.get(CONF_WEB_SEARCH_INCLUDE_SOURCES)
-    data[CONF_WEB_SEARCH_INCLUDE_SOURCES] = (
-        include_sources
-        if isinstance(include_sources, bool)
-        else DEFAULT_WEB_SEARCH_INCLUDE_SOURCES
+
+    for key, default in (
+        (CONF_WEB_SEARCH_INCLUDE_SOURCES, DEFAULT_WEB_SEARCH_INCLUDE_SOURCES),
+        (CONF_WEB_SEARCH_LIVE_ACCESS, DEFAULT_WEB_SEARCH_LIVE_ACCESS),
+        (
+            CONF_WEB_SEARCH_USE_HASS_LOCATION,
+            DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+        ),
+    ):
+        value = data.get(key)
+        data[key] = value if isinstance(value, bool) else default
+
+    # Before v1.3.0 the full visible chat log was sent on every turn. Preserve
+    # that behavior for existing entries while placing a generous safety limit
+    # on unbounded conversations. New entries use the more efficient defaults.
+    memory_mode_default = (
+        MIGRATED_MEMORY_MODE if entry.version < 9 else DEFAULT_MEMORY_MODE
     )
-    live_access = data.get(CONF_WEB_SEARCH_LIVE_ACCESS)
-    data[CONF_WEB_SEARCH_LIVE_ACCESS] = (
-        live_access
-        if isinstance(live_access, bool)
-        else DEFAULT_WEB_SEARCH_LIVE_ACCESS
+    memory_characters_default = (
+        MIGRATED_MEMORY_MAX_CHARACTERS
+        if entry.version < 9
+        else DEFAULT_MEMORY_MAX_CHARACTERS
     )
-    use_location = data.get(CONF_WEB_SEARCH_USE_HASS_LOCATION)
-    data[CONF_WEB_SEARCH_USE_HASS_LOCATION] = (
-        use_location
-        if isinstance(use_location, bool)
-        else DEFAULT_WEB_SEARCH_USE_HASS_LOCATION
-    )
+    try:
+        data[CONF_MEMORY_MODE] = normalize_memory_mode(
+            data.get(CONF_MEMORY_MODE),
+            default=memory_mode_default,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid conversation-memory mode; resetting to %s",
+            entry.entry_id,
+            memory_mode_default,
+        )
+        data[CONF_MEMORY_MODE] = memory_mode_default
+    try:
+        data[CONF_MEMORY_MAX_TURNS] = normalize_memory_max_turns(
+            data.get(CONF_MEMORY_MAX_TURNS),
+            default=DEFAULT_MEMORY_MAX_TURNS,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid conversation-memory turn limit; "
+            "resetting to %s",
+            entry.entry_id,
+            DEFAULT_MEMORY_MAX_TURNS,
+        )
+        data[CONF_MEMORY_MAX_TURNS] = DEFAULT_MEMORY_MAX_TURNS
+    try:
+        data[CONF_MEMORY_MAX_CHARACTERS] = normalize_memory_max_characters(
+            data.get(CONF_MEMORY_MAX_CHARACTERS),
+            default=memory_characters_default,
+        )
+    except ValueError:
+        LOGGER.warning(
+            "Config entry %s used an invalid conversation-memory character limit; "
+            "resetting to %s",
+            entry.entry_id,
+            memory_characters_default,
+        )
+        data[CONF_MEMORY_MAX_CHARACTERS] = memory_characters_default
+
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 8 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=8)
+    if entry.version < 9 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=9)
     return True
 
 
@@ -522,6 +599,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         web_search.mode,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    profile_fingerprint = assistant_profiles_fingerprint(entry)
+
+    async def _async_profile_settings_updated(
+        updated_hass: HomeAssistant,
+        updated_entry: ConfigEntry,
+    ) -> None:
+        """Reload only when an assistant profile changes.
+
+        OAuth refreshes update credentials in the same config entry. Those updates must
+        not tear down active conversation agents, so the listener compares only resolved
+        profile settings and config subentries.
+        """
+        nonlocal profile_fingerprint
+        new_fingerprint = assistant_profiles_fingerprint(updated_entry)
+        if new_fingerprint == profile_fingerprint:
+            return
+        profile_fingerprint = new_fingerprint
+        await updated_hass.config_entries.async_reload(updated_entry.entry_id)
+
+    entry.async_on_unload(entry.add_update_listener(_async_profile_settings_updated))
     return True
 
 

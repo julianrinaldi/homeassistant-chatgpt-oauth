@@ -1,4 +1,5 @@
 """OpenAI web-search configuration and response rendering helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -103,15 +104,11 @@ def normalize_allowed_domains(value: object) -> tuple[str, ...]:
         candidate = raw.strip().lower()
         if any(character.isspace() for character in candidate):
             raise ValueError(f"Invalid allowed web-search domain: {raw!r}")
-        parsed = urlsplit(
-            candidate if "://" in candidate else f"https://{candidate}"
-        )
+        parsed = urlsplit(candidate if "://" in candidate else f"https://{candidate}")
         try:
             port = parsed.port
         except ValueError as err:
-            raise ValueError(
-                f"Invalid allowed web-search domain: {raw!r}"
-            ) from err
+            raise ValueError(f"Invalid allowed web-search domain: {raw!r}") from err
         if (
             parsed.scheme not in {"http", "https"}
             or not parsed.hostname
@@ -131,12 +128,9 @@ def normalize_allowed_domains(value: object) -> tuple[str, ...]:
         try:
             hostname = hostname.encode("idna").decode("ascii")
         except UnicodeError as err:
-            raise ValueError(
-                f"Invalid allowed web-search domain: {raw!r}"
-            ) from err
-        if (
-            len(hostname) > 253
-            or any(not label or len(label) > 63 for label in hostname.split("."))
+            raise ValueError(f"Invalid allowed web-search domain: {raw!r}") from err
+        if len(hostname) > 253 or any(
+            not label or len(label) > 63 for label in hostname.split(".")
         ):
             raise ValueError(f"Invalid allowed web-search domain: {raw!r}")
         if hostname not in normalized:
@@ -220,15 +214,13 @@ def safe_web_url(value: object) -> str | None:
         return None
     url = value.strip()
     if any(
-        character.isspace()
-        or ord(character) < 0x20
-        or character in "<>\x7f"
+        character.isspace() or ord(character) < 0x20 or character in "<>\x7f"
         for character in url
     ):
         return None
     parsed = urlsplit(url)
     try:
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return None
     if (
@@ -245,8 +237,4 @@ def safe_web_url(value: object) -> str | None:
 def markdown_escape(value: str) -> str:
     """Escape and flatten text used as a Markdown link label."""
     flattened = " ".join(value.split())
-    return (
-        flattened.replace("\\", "\\\\")
-        .replace("[", "\\[")
-        .replace("]", "\\]")
-    )
+    return flattened.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")

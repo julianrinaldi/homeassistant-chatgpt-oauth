@@ -1,4 +1,5 @@
 """Constants for the ChatGPT OAuth integration."""
+
 from __future__ import annotations
 
 import logging
@@ -6,19 +7,21 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.2.1"
+INTEGRATION_VERSION: Final = "1.3.0"
 LOGGER = logging.getLogger(__package__)
 
-REPOSITORY_URL: Final = (
-    "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
-)
+REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
 ISSUE_TRACKER_URL: Final = f"{REPOSITORY_URL}/issues"
+
+SUBENTRY_TYPE_ASSISTANT: Final = "assistant"
+HISTORY_LLM_API_ID: Final = f"{DOMAIN}_history"
 
 CONF_ACCESS_TOKEN: Final = "access_token"
 CONF_ACCOUNT_ID: Final = "account_id"
 CONF_REFRESH_TOKEN: Final = "refresh_token"
 CONF_EXPIRES: Final = "expires"
 CONF_ENABLE_HASS_CONTROL: Final = "enable_home_assistant_control"
+CONF_ENABLE_HISTORY_TOOLS: Final = "enable_history_tools"
 CONF_MODEL: Final = "model"
 CONF_PROMPT: Final = "prompt"
 CONF_REASONING_EFFORT: Final = "reasoning_effort"
@@ -27,9 +30,24 @@ CONF_WEB_SEARCH_CONTEXT_SIZE: Final = "web_search_context_size"
 CONF_WEB_SEARCH_INCLUDE_SOURCES: Final = "web_search_include_sources"
 CONF_WEB_SEARCH_LIVE_ACCESS: Final = "web_search_live_access"
 CONF_WEB_SEARCH_USE_HASS_LOCATION: Final = "web_search_use_home_assistant_location"
+CONF_MEMORY_MODE: Final = "memory_mode"
+CONF_MEMORY_MAX_TURNS: Final = "memory_max_turns"
+CONF_MEMORY_MAX_CHARACTERS: Final = "memory_max_characters"
+
+MEMORY_MODE_CURRENT_TURN: Final = "current_turn"
+MEMORY_MODE_RECENT: Final = "recent"
+MEMORY_MODE_SUMMARIZED: Final = "summarized"
+MEMORY_MODE_FULL: Final = "full"
+MEMORY_MODES: Final = (
+    MEMORY_MODE_CURRENT_TURN,
+    MEMORY_MODE_RECENT,
+    MEMORY_MODE_SUMMARIZED,
+    MEMORY_MODE_FULL,
+)
 
 DEFAULT_NAME: Final = INTEGRATION_NAME
 DEFAULT_ENABLE_HASS_CONTROL: Final = True
+DEFAULT_ENABLE_HISTORY_TOOLS: Final = False
 DEFAULT_MODEL: Final = "gpt-5.6-terra"
 DEFAULT_PROMPT: Final = (
     "You are a helpful voice assistant for Home Assistant. "
@@ -40,6 +58,20 @@ DEFAULT_WEB_SEARCH_CONTEXT_SIZE: Final = "medium"
 DEFAULT_WEB_SEARCH_INCLUDE_SOURCES: Final = False
 DEFAULT_WEB_SEARCH_LIVE_ACCESS: Final = True
 DEFAULT_WEB_SEARCH_USE_HASS_LOCATION: Final = False
+DEFAULT_MEMORY_MODE: Final = MEMORY_MODE_RECENT
+DEFAULT_MEMORY_MAX_TURNS: Final = 12
+DEFAULT_MEMORY_MAX_CHARACTERS: Final = 16_000
+# Existing entries used the complete Home Assistant chat log before v1.3.0.
+# Migration keeps that behavior with a generous safety ceiling.
+MIGRATED_MEMORY_MODE: Final = MEMORY_MODE_FULL
+MIGRATED_MEMORY_MAX_CHARACTERS: Final = 64_000
+MIN_MEMORY_MAX_TURNS: Final = 1
+MAX_MEMORY_MAX_TURNS: Final = 50
+MIN_MEMORY_MAX_CHARACTERS: Final = 2_000
+MAX_MEMORY_MAX_CHARACTERS: Final = 100_000
+MAX_MEMORY_SUMMARY_CHARACTERS: Final = 4_000
+MAX_MEMORY_SUMMARY_SOURCE_CHARACTERS: Final = 60_000
+MAX_MEMORY_SUMMARY_CACHE_ENTRIES: Final = 100
 
 DEFAULT_AI_TASK_SYSTEM_PROMPT: Final = (
     "You are a Home Assistant expert. Follow the user's task instructions and "
@@ -77,6 +109,20 @@ MAX_ATTACHMENTS_TOTAL_BYTES: Final = 50 * 1024 * 1024
 MAX_REMOTE_IMAGE_BYTES: Final = 20 * 1024 * 1024
 MAX_REDIRECTS: Final = 5
 
+MAX_HISTORY_ENTITY_IDS: Final = 5
+MAX_HISTORY_DAYS: Final = 31
+DEFAULT_HISTORY_HOURS: Final = 24
+DEFAULT_HISTORY_POINTS: Final = 100
+MAX_HISTORY_POINTS: Final = 200
+MAX_STATISTIC_IDS: Final = 5
+MAX_STATISTICS_DAYS: Final = 366
+DEFAULT_STATISTICS_DAYS: Final = 7
+DEFAULT_STATISTICS_POINTS: Final = 200
+MAX_STATISTICS_POINTS: Final = 400
+DEFAULT_ENERGY_DAYS: Final = 7
+DEFAULT_ENERGY_POINTS: Final = 100
+MAX_ENERGY_POINTS: Final = 200
+
 # This key is assembled to prevent accidental copy/paste back into a request
 # payload while still allowing migration and defensive validation.
-LEGACY_OUTPUT_LIMIT_KEY: Final = "max_" "output_tokens"
+LEGACY_OUTPUT_LIMIT_KEY: Final = "max_output_tokens"

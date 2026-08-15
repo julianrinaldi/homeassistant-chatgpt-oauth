@@ -1,9 +1,10 @@
 """Typed exceptions for ChatGPT OAuth."""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import re
-from dataclasses import dataclass
 from typing import Any
 
 _TOKEN_PATTERN = re.compile(

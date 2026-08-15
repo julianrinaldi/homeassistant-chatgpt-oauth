@@ -1,15 +1,19 @@
 """Tests for the public setup flow."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from yarl import URL
-
 from homeassistant import config_entries, data_entry_flow
+from yarl import URL
 
 from custom_components.openai_oauth_conversation.auth import OAuthTokenData
 from custom_components.openai_oauth_conversation.const import (
     CONF_ENABLE_HASS_CONTROL,
+    CONF_ENABLE_HISTORY_TOOLS,
+    CONF_MEMORY_MAX_CHARACTERS,
+    CONF_MEMORY_MAX_TURNS,
+    CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -24,10 +28,14 @@ from custom_components.openai_oauth_conversation.const import (
 
 async def test_full_user_flow(hass) -> None:
     """Setup links model-specific thinking selection to OAuth validation."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": config_entries.SOURCE_USER},
-    )
+    with patch(
+        "homeassistant.config_entries.async_process_deps_reqs",
+        AsyncMock(return_value=None),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_USER},
+        )
     assert result["type"] is data_entry_flow.FlowResultType.FORM
     assert result["step_id"] == "user"
 
@@ -36,6 +44,10 @@ async def test_full_user_flow(hass) -> None:
         {
             "name": "Primary account",
             CONF_ENABLE_HASS_CONTROL: False,
+            CONF_ENABLE_HISTORY_TOOLS: True,
+            CONF_MEMORY_MODE: "summarized",
+            CONF_MEMORY_MAX_TURNS: 8,
+            CONF_MEMORY_MAX_CHARACTERS: 12000,
             CONF_MODEL: "gpt-5.6-luna",
             CONF_PROMPT: "Be helpful.",
             CONF_WEB_SEARCH_MODE: "auto",
@@ -85,6 +97,10 @@ async def test_full_user_flow(hass) -> None:
     assert result["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "Primary account"
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
+    assert result["data"][CONF_ENABLE_HISTORY_TOOLS] is True
+    assert result["data"][CONF_MEMORY_MODE] == "summarized"
+    assert result["data"][CONF_MEMORY_MAX_TURNS] == 8
+    assert result["data"][CONF_MEMORY_MAX_CHARACTERS] == 12000
     assert result["data"][CONF_MODEL] == "gpt-5.6-luna"
     assert result["data"][CONF_REASONING_EFFORT] == "max"
     assert result["data"][CONF_WEB_SEARCH_MODE] == "auto"

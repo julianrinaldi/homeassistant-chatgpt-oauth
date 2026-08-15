@@ -1,4 +1,5 @@
 """Tests for the model capability catalog."""
+
 from __future__ import annotations
 
 import pytest

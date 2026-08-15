@@ -1,10 +1,12 @@
 """Tests for OAuth parsing and refresh serialization."""
+
 from __future__ import annotations
 
 import asyncio
 import base64
 import json
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 
@@ -30,9 +32,7 @@ from custom_components.openai_oauth_conversation.exceptions import (
 
 def _jwt(payload: dict) -> str:
     encoded = (
-        base64.urlsafe_b64encode(json.dumps(payload).encode())
-        .decode()
-        .rstrip("=")
+        base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     )
     return f"header.{encoded}.signature"
 
@@ -43,13 +43,7 @@ def test_callback_and_jwt_parsing() -> None:
         "http://localhost:1455/auth/callback?code=abc&state=xyz"
     )
     assert (code, state) == ("abc", "xyz")
-    token = _jwt(
-        {
-            "https://api.openai.com/auth": {
-                "chatgpt_account_id": "account-123"
-            }
-        }
-    )
+    token = _jwt({"https://api.openai.com/auth": {"chatgpt_account_id": "account-123"}})
     assert extract_account_id(token) == "account-123"
     assert compute_code_challenge("verifier") == compute_code_challenge("verifier")
 
@@ -117,7 +111,7 @@ async def test_rejected_refresh_starts_reauthentication(monkeypatch) -> None:
 
     class RejectedResponse:
         status = 401
-        headers: dict[str, str] = {}
+        headers: ClassVar[dict[str, str]] = {}
 
         async def __aenter__(self):
             await asyncio.sleep(0)

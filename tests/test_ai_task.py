@@ -1,12 +1,13 @@
 """Tests for native Home Assistant AI Task metadata."""
+
 from __future__ import annotations
 
 from homeassistant.components import ai_task
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openai_oauth_conversation.ai_task import (
-    ChatGPTOAuthTaskEntity,
     SUPPORTED_FEATURES,
+    ChatGPTOAuthTaskEntity,
 )
 from custom_components.openai_oauth_conversation.const import DOMAIN
 

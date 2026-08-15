@@ -1,4 +1,5 @@
 """Tests for redacted integration diagnostics."""
+
 from __future__ import annotations
 
 import json
@@ -8,8 +9,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.openai_oauth_conversation.const import (
     CONF_ACCESS_TOKEN,
     CONF_ACCOUNT_ID,
-    CONF_EXPIRES,
     CONF_ENABLE_HASS_CONTROL,
+    CONF_EXPIRES,
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -57,11 +58,14 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     serialized = json.dumps(diagnostics)
     for value in secrets.values():
         assert value not in serialized
-    assert diagnostics["config_entry"]["home_assistant_control_enabled"] is False
-    assert diagnostics["model"]["slug"] == "gpt-5.6-terra"
-    assert diagnostics["model"]["thinking_level"] == "high"
-    assert diagnostics["model"]["supports_web_search"] is True
-    assert diagnostics["web_search"] == {
+    assert diagnostics["config_entry"]["assistant_profile_count"] == 1
+    profile = diagnostics["assistant_profiles"][0]
+    assert profile["profile_type"] == "default"
+    assert profile["home_assistant_control_enabled"] is False
+    assert profile["model"]["slug"] == "gpt-5.6-terra"
+    assert profile["model"]["thinking_level"] == "high"
+    assert profile["model"]["supports_web_search"] is True
+    assert profile["web_search"] == {
         "mode": "required",
         "context_size": "high",
         "includes_sources_in_response_text": False,

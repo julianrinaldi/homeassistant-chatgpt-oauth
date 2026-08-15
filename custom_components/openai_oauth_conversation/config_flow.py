@@ -1,17 +1,25 @@
-"""Config flow for ChatGPT OAuth."""
+"""Config and assistant-profile flows for ChatGPT OAuth."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 import hashlib
 import secrets
-from dataclasses import dataclass
 from typing import Any
 
-import voluptuous as vol
-
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    SubentryFlowResult,
+)
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import voluptuous as vol
 
 from .auth import (
     OAuthTokenData,
@@ -23,6 +31,10 @@ from .auth import (
 from .client import ChatGPTOAuthClient
 from .const import (
     CONF_ENABLE_HASS_CONTROL,
+    CONF_ENABLE_HISTORY_TOOLS,
+    CONF_MEMORY_MAX_CHARACTERS,
+    CONF_MEMORY_MAX_TURNS,
+    CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -31,17 +43,21 @@ from .const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
-    DEFAULT_ENABLE_HASS_CONTROL,
+    DEFAULT_MEMORY_MAX_CHARACTERS,
+    DEFAULT_MEMORY_MAX_TURNS,
     DEFAULT_MODEL,
     DEFAULT_NAME,
-    DEFAULT_PROMPT,
-    DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-    DEFAULT_WEB_SEARCH_MODE,
-    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
     DOMAIN,
     LEGACY_OUTPUT_LIMIT_KEY,
+    MAX_MEMORY_MAX_CHARACTERS,
+    MAX_MEMORY_MAX_TURNS,
+    MEMORY_MODE_CURRENT_TURN,
+    MEMORY_MODE_FULL,
+    MEMORY_MODE_RECENT,
+    MEMORY_MODE_SUMMARIZED,
+    MIN_MEMORY_MAX_CHARACTERS,
+    MIN_MEMORY_MAX_TURNS,
+    SUBENTRY_TYPE_ASSISTANT,
 )
 from .exceptions import (
     AuthenticationError,
@@ -55,11 +71,11 @@ from .models import (
     MODEL_PROFILES,
     REASONING_EFFORT_LABELS,
     get_model_profile,
-    normalize_model,
     normalize_reasoning_effort,
     reasoning_efforts_for_model,
     validate_reasoning_effort,
 )
+from .profiles import profile_data_defaults, profile_data_from_input
 from .web_search import (
     WEB_SEARCH_AUTO,
     WEB_SEARCH_CONTEXT_HIGH,
@@ -67,8 +83,6 @@ from .web_search import (
     WEB_SEARCH_CONTEXT_MEDIUM,
     WEB_SEARCH_DISABLED,
     WEB_SEARCH_REQUIRED,
-    normalize_web_search_context_size,
-    normalize_web_search_mode,
 )
 
 
@@ -118,6 +132,17 @@ def _web_search_context_schema() -> vol.In:
     )
 
 
+def _memory_mode_schema() -> vol.In:
+    return vol.In(
+        {
+            MEMORY_MODE_CURRENT_TURN: "Current turn only",
+            MEMORY_MODE_RECENT: "Recent turns",
+            MEMORY_MODE_SUMMARIZED: "Summarize older turns",
+            MEMORY_MODE_FULL: "Full history up to limit",
+        }
+    )
+
+
 def _prompt_selector() -> selector.TextSelector:
     return selector.TextSelector({"multiline": True})
 
@@ -134,47 +159,94 @@ def _flow_error(error: ChatGPTOAuthError) -> str:
     return "unknown"
 
 
-def _web_search_settings(
-    user_input: dict[str, Any],
+def _profile_schema(
+    defaults: Mapping[str, Any],
     *,
-    default_mode: str,
-    default_context_size: str,
-    default_include_sources: bool,
-    default_live_access: bool,
-    default_use_location: bool,
-) -> dict[str, Any]:
-    """Normalize web-search settings from a setup or reconfigure form."""
-    return {
-        CONF_WEB_SEARCH_MODE: normalize_web_search_mode(
-            user_input.get(CONF_WEB_SEARCH_MODE),
-            default=default_mode,
-        ),
-        CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
-            user_input.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
-            default=default_context_size,
-        ),
-        CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
-            user_input.get(
+    name_default: str,
+) -> vol.Schema:
+    """Build one account or assistant-profile settings form."""
+    return vol.Schema(
+        {
+            vol.Optional("name", default=name_default): str,
+            vol.Required(CONF_MODEL, default=defaults[CONF_MODEL]): _model_schema(
+                defaults[CONF_MODEL]
+            ),
+            vol.Optional(
+                CONF_ENABLE_HASS_CONTROL,
+                default=defaults[CONF_ENABLE_HASS_CONTROL],
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_HISTORY_TOOLS,
+                default=defaults[CONF_ENABLE_HISTORY_TOOLS],
+            ): bool,
+            vol.Required(
+                CONF_MEMORY_MODE,
+                default=defaults[CONF_MEMORY_MODE],
+            ): _memory_mode_schema(),
+            vol.Optional(
+                CONF_MEMORY_MAX_TURNS,
+                default=defaults[CONF_MEMORY_MAX_TURNS],
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=MIN_MEMORY_MAX_TURNS, max=MAX_MEMORY_MAX_TURNS),
+            ),
+            vol.Optional(
+                CONF_MEMORY_MAX_CHARACTERS,
+                default=defaults[CONF_MEMORY_MAX_CHARACTERS],
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(
+                    min=MIN_MEMORY_MAX_CHARACTERS,
+                    max=MAX_MEMORY_MAX_CHARACTERS,
+                ),
+            ),
+            vol.Required(
+                CONF_WEB_SEARCH_MODE,
+                default=defaults[CONF_WEB_SEARCH_MODE],
+            ): _web_search_mode_schema(),
+            vol.Required(
+                CONF_WEB_SEARCH_CONTEXT_SIZE,
+                default=defaults[CONF_WEB_SEARCH_CONTEXT_SIZE],
+            ): _web_search_context_schema(),
+            vol.Optional(
                 CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                default_include_sources,
-            )
-        ),
-        CONF_WEB_SEARCH_LIVE_ACCESS: bool(
-            user_input.get(CONF_WEB_SEARCH_LIVE_ACCESS, default_live_access)
-        ),
-        CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
-            user_input.get(
+                default=defaults[CONF_WEB_SEARCH_INCLUDE_SOURCES],
+            ): bool,
+            vol.Optional(
+                CONF_WEB_SEARCH_LIVE_ACCESS,
+                default=defaults[CONF_WEB_SEARCH_LIVE_ACCESS],
+            ): bool,
+            vol.Optional(
                 CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                default_use_location,
-            )
-        ),
-    }
+                default=defaults[CONF_WEB_SEARCH_USE_HASS_LOCATION],
+            ): bool,
+            vol.Optional(
+                CONF_PROMPT,
+                default=defaults[CONF_PROMPT],
+            ): _prompt_selector(),
+        }
+    )
+
+
+def _parse_profile_form(
+    user_input: Mapping[str, Any],
+    *,
+    defaults: Mapping[str, Any],
+    fallback_name: str,
+) -> tuple[str, dict[str, Any]]:
+    """Normalize one profile form and its title."""
+    model = get_model_profile(user_input.get(CONF_MODEL, defaults[CONF_MODEL])).slug
+    normalized_input = dict(user_input)
+    normalized_input[CONF_MODEL] = model
+    data = profile_data_from_input(normalized_input, defaults=defaults)
+    name = str(user_input.get("name") or fallback_name).strip() or fallback_name
+    return name, data
 
 
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Configure ChatGPT OAuth."""
+    """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 8
+    VERSION = 9
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]
@@ -182,79 +254,38 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     _code_verifier: str
     _authorize_url: str
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls,
+        config_entry: ConfigEntry,
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Return additional configurations sharing this OAuth account."""
+        return {SUBENTRY_TYPE_ASSISTANT: AssistantProfileSubentryFlow}
+
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Collect the account name, model, tools, and system prompt."""
+        """Collect default assistant behavior before OAuth authentication."""
+        defaults = profile_data_defaults()
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                model = get_model_profile(user_input.get(CONF_MODEL)).slug
-                web_search = _web_search_settings(
+                name, data = _parse_profile_form(
                     user_input,
-                    default_mode=DEFAULT_WEB_SEARCH_MODE,
-                    default_context_size=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-                    default_include_sources=DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                    default_live_access=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                    default_use_location=DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+                    defaults=defaults,
+                    fallback_name=DEFAULT_NAME,
                 )
-            except ValueError:
-                errors["base"] = "unsupported_model_or_web_search"
+            except (ValueError, vol.Invalid):
+                errors["base"] = "unsupported_profile_settings"
             else:
-                self._oauth_input = {
-                    "name": str(user_input.get("name") or DEFAULT_NAME).strip()
-                    or DEFAULT_NAME,
-                    CONF_ENABLE_HASS_CONTROL: bool(
-                        user_input.get(
-                            CONF_ENABLE_HASS_CONTROL,
-                            DEFAULT_ENABLE_HASS_CONTROL,
-                        )
-                    ),
-                    CONF_MODEL: model,
-                    CONF_PROMPT: str(
-                        user_input.get(CONF_PROMPT) or DEFAULT_PROMPT
-                    ).strip(),
-                    **web_search,
-                }
+                self._oauth_input = {"name": name, **data}
                 return await self.async_step_reasoning()
 
-        schema = vol.Schema(
-            {
-                vol.Optional("name", default=DEFAULT_NAME): str,
-                vol.Required(CONF_MODEL, default=DEFAULT_MODEL): _model_schema(
-                    DEFAULT_MODEL
-                ),
-                vol.Optional(
-                    CONF_ENABLE_HASS_CONTROL,
-                    default=DEFAULT_ENABLE_HASS_CONTROL,
-                ): bool,
-                vol.Required(
-                    CONF_WEB_SEARCH_MODE,
-                    default=DEFAULT_WEB_SEARCH_MODE,
-                ): _web_search_mode_schema(),
-                vol.Required(
-                    CONF_WEB_SEARCH_CONTEXT_SIZE,
-                    default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-                ): _web_search_context_schema(),
-                vol.Optional(
-                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                    default=DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                ): bool,
-                vol.Optional(
-                    CONF_WEB_SEARCH_LIVE_ACCESS,
-                    default=DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                ): bool,
-                vol.Optional(
-                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                    default=DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-                ): bool,
-                vol.Optional(CONF_PROMPT, default=DEFAULT_PROMPT): _prompt_selector(),
-            }
-        )
         return self.async_show_form(
             step_id="user",
-            data_schema=schema,
+            data_schema=_profile_schema(defaults, name_default=DEFAULT_NAME),
             errors=errors,
         )
 
@@ -282,17 +313,16 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._oauth_input[CONF_REASONING_EFFORT] = effort
                 return await self.async_step_auth_manual()
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_REASONING_EFFORT,
-                    default=default_effort,
-                ): _reasoning_schema(model)
-            }
-        )
         return self.async_show_form(
             step_id="reasoning",
-            data_schema=schema,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REASONING_EFFORT,
+                        default=default_effort,
+                    ): _reasoning_schema(model)
+                }
+            ),
             errors=errors,
             description_placeholders={
                 "model": get_model_profile(model).display_name,
@@ -344,47 +374,13 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         token_data: OAuthTokenData,
     ) -> ConfigFlowResult:
         """Validate the authenticated backend and create or update an entry."""
-        model = normalize_model(self._oauth_input.get(CONF_MODEL, DEFAULT_MODEL))
-        reasoning_effort = normalize_reasoning_effort(
-            model,
-            self._oauth_input.get(CONF_REASONING_EFFORT),
-        )
+        model = self._oauth_input[CONF_MODEL]
         data = {
             **token_data.as_config_data(),
-            CONF_ENABLE_HASS_CONTROL: bool(
-                self._oauth_input.get(
-                    CONF_ENABLE_HASS_CONTROL,
-                    DEFAULT_ENABLE_HASS_CONTROL,
-                )
-            ),
-            CONF_MODEL: model,
-            CONF_REASONING_EFFORT: reasoning_effort,
-            CONF_PROMPT: self._oauth_input.get(CONF_PROMPT, DEFAULT_PROMPT),
-            CONF_WEB_SEARCH_MODE: self._oauth_input.get(
-                CONF_WEB_SEARCH_MODE,
-                DEFAULT_WEB_SEARCH_MODE,
-            ),
-            CONF_WEB_SEARCH_CONTEXT_SIZE: self._oauth_input.get(
-                CONF_WEB_SEARCH_CONTEXT_SIZE,
-                DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-            ),
-            CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
-                self._oauth_input.get(
-                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                )
-            ),
-            CONF_WEB_SEARCH_LIVE_ACCESS: bool(
-                self._oauth_input.get(
-                    CONF_WEB_SEARCH_LIVE_ACCESS,
-                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                )
-            ),
-            CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
-                self._oauth_input.get(
-                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-                )
+            **{key: value for key, value in self._oauth_input.items() if key != "name"},
+            CONF_REASONING_EFFORT: normalize_reasoning_effort(
+                model,
+                self._oauth_input.get(CONF_REASONING_EFFORT),
             ),
         }
         data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
@@ -411,15 +407,18 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
             entry = self._get_reauth_entry()
             new_data = dict(entry.data)
             new_data.update(data)
-            return self.async_update_reload_and_abort(
+            result = self.async_update_and_abort(
                 entry,
-                data_updates=new_data,
+                data=new_data,
                 reason="reauth_successful",
             )
+            self.hass.config_entries.async_schedule_reload(entry.entry_id)
+            return result
 
-        unique_id = token_data.account_id or hashlib.sha256(
-            token_data.refresh_token.encode("utf-8")
-        ).hexdigest()[:32]
+        unique_id = (
+            token_data.account_id
+            or hashlib.sha256(token_data.refresh_token.encode("utf-8")).hexdigest()[:32]
+        )
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(
@@ -431,124 +430,27 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Update the entry name, model, tools, and system prompt."""
+        """Update the default assistant profile."""
         entry = self._get_reconfigure_entry()
-        current_model = normalize_model(entry.data.get(CONF_MODEL, DEFAULT_MODEL))
-        current_web_search_mode = normalize_web_search_mode(
-            entry.data.get(CONF_WEB_SEARCH_MODE),
-            default=DEFAULT_WEB_SEARCH_MODE,
-        )
-        current_web_search_context = normalize_web_search_context_size(
-            entry.data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
-            default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-        )
+        defaults = profile_data_defaults(entry.data)
         errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
-                model = get_model_profile(
-                    user_input.get(CONF_MODEL, current_model)
-                ).slug
-                web_search = _web_search_settings(
+                name, data = _parse_profile_form(
                     user_input,
-                    default_mode=current_web_search_mode,
-                    default_context_size=current_web_search_context,
-                    default_include_sources=bool(
-                        entry.data.get(
-                            CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                            DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                        )
-                    ),
-                    default_live_access=bool(
-                        entry.data.get(
-                            CONF_WEB_SEARCH_LIVE_ACCESS,
-                            DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                        )
-                    ),
-                    default_use_location=bool(
-                        entry.data.get(
-                            CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                            DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-                        )
-                    ),
+                    defaults=defaults,
+                    fallback_name=entry.title,
                 )
-            except ValueError:
-                errors["base"] = "unsupported_model_or_web_search"
+            except (ValueError, vol.Invalid):
+                errors["base"] = "unsupported_profile_settings"
             else:
-                self._reconfigure_input = {
-                    "name": str(user_input.get("name") or entry.title).strip()
-                    or entry.title,
-                    CONF_ENABLE_HASS_CONTROL: bool(
-                        user_input.get(
-                            CONF_ENABLE_HASS_CONTROL,
-                            entry.data.get(
-                                CONF_ENABLE_HASS_CONTROL,
-                                DEFAULT_ENABLE_HASS_CONTROL,
-                            ),
-                        )
-                    ),
-                    CONF_MODEL: model,
-                    CONF_PROMPT: str(
-                        user_input.get(
-                            CONF_PROMPT,
-                            entry.data.get(CONF_PROMPT, DEFAULT_PROMPT),
-                        )
-                    ).strip(),
-                    **web_search,
-                }
+                self._reconfigure_input = {"name": name, **data}
                 return await self.async_step_reconfigure_reasoning()
 
-        schema = vol.Schema(
-            {
-                vol.Optional("name", default=entry.title): str,
-                vol.Required(CONF_MODEL, default=current_model): _model_schema(
-                    current_model
-                ),
-                vol.Optional(
-                    CONF_ENABLE_HASS_CONTROL,
-                    default=entry.data.get(
-                        CONF_ENABLE_HASS_CONTROL,
-                        DEFAULT_ENABLE_HASS_CONTROL,
-                    ),
-                ): bool,
-                vol.Required(
-                    CONF_WEB_SEARCH_MODE,
-                    default=current_web_search_mode,
-                ): _web_search_mode_schema(),
-                vol.Required(
-                    CONF_WEB_SEARCH_CONTEXT_SIZE,
-                    default=current_web_search_context,
-                ): _web_search_context_schema(),
-                vol.Optional(
-                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                    default=entry.data.get(
-                        CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                        DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_WEB_SEARCH_LIVE_ACCESS,
-                    default=entry.data.get(
-                        CONF_WEB_SEARCH_LIVE_ACCESS,
-                        DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                    default=entry.data.get(
-                        CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                        DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-                    ),
-                ): bool,
-                vol.Optional(
-                    CONF_PROMPT,
-                    default=entry.data.get(CONF_PROMPT, DEFAULT_PROMPT),
-                ): _prompt_selector(),
-            }
-        )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=schema,
+            data_schema=_profile_schema(defaults, name_default=entry.title),
             errors=errors,
         )
 
@@ -577,47 +479,29 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
                 new_data = dict(entry.data)
                 new_data.update(
                     {
-                        CONF_ENABLE_HASS_CONTROL: self._reconfigure_input[
-                            CONF_ENABLE_HASS_CONTROL
-                        ],
-                        CONF_MODEL: model,
-                        CONF_PROMPT: self._reconfigure_input[CONF_PROMPT],
-                        CONF_REASONING_EFFORT: effort,
-                        CONF_WEB_SEARCH_MODE: self._reconfigure_input[
-                            CONF_WEB_SEARCH_MODE
-                        ],
-                        CONF_WEB_SEARCH_CONTEXT_SIZE: self._reconfigure_input[
-                            CONF_WEB_SEARCH_CONTEXT_SIZE
-                        ],
-                        CONF_WEB_SEARCH_INCLUDE_SOURCES: self._reconfigure_input[
-                            CONF_WEB_SEARCH_INCLUDE_SOURCES
-                        ],
-                        CONF_WEB_SEARCH_LIVE_ACCESS: self._reconfigure_input[
-                            CONF_WEB_SEARCH_LIVE_ACCESS
-                        ],
-                        CONF_WEB_SEARCH_USE_HASS_LOCATION: self._reconfigure_input[
-                            CONF_WEB_SEARCH_USE_HASS_LOCATION
-                        ],
+                        key: value
+                        for key, value in self._reconfigure_input.items()
+                        if key != "name"
                     }
                 )
+                new_data[CONF_REASONING_EFFORT] = effort
                 new_data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
-                return self.async_update_reload_and_abort(
+                return self.async_update_and_abort(
                     entry,
-                    data_updates=new_data,
+                    data=new_data,
                     title=self._reconfigure_input["name"],
                 )
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_REASONING_EFFORT,
-                    default=current_effort,
-                ): _reasoning_schema(model)
-            }
-        )
         return self.async_show_form(
             step_id="reconfigure_reasoning",
-            data_schema=schema,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REASONING_EFFORT,
+                        default=current_effort,
+                    ): _reasoning_schema(model)
+                }
+            ),
             errors=errors,
             description_placeholders={
                 "model": get_model_profile(model).display_name,
@@ -628,51 +512,184 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         entry_data: dict[str, Any],
     ) -> ConfigFlowResult:
-        """Reauthenticate while retaining non-authentication settings."""
+        """Reauthenticate while retaining default-profile settings."""
         entry = self._get_reauth_entry()
-        model = normalize_model(entry_data.get(CONF_MODEL, DEFAULT_MODEL))
+        defaults = profile_data_defaults(entry_data)
         self._oauth_input = {
             "name": entry.title,
-            CONF_ENABLE_HASS_CONTROL: bool(
-                entry_data.get(
-                    CONF_ENABLE_HASS_CONTROL,
-                    DEFAULT_ENABLE_HASS_CONTROL,
-                )
-            ),
-            CONF_MODEL: model,
-            CONF_REASONING_EFFORT: normalize_reasoning_effort(
-                model,
-                entry_data.get(CONF_REASONING_EFFORT),
-            ),
-            CONF_PROMPT: entry_data.get(CONF_PROMPT, DEFAULT_PROMPT),
-            CONF_WEB_SEARCH_MODE: normalize_web_search_mode(
-                entry_data.get(CONF_WEB_SEARCH_MODE),
-                default=DEFAULT_WEB_SEARCH_MODE,
-            ),
-            CONF_WEB_SEARCH_CONTEXT_SIZE: normalize_web_search_context_size(
-                entry_data.get(CONF_WEB_SEARCH_CONTEXT_SIZE),
-                default=DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
-            ),
-            CONF_WEB_SEARCH_INCLUDE_SOURCES: bool(
-                entry_data.get(
-                    CONF_WEB_SEARCH_INCLUDE_SOURCES,
-                    DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
-                )
-            ),
-            CONF_WEB_SEARCH_LIVE_ACCESS: bool(
-                entry_data.get(
-                    CONF_WEB_SEARCH_LIVE_ACCESS,
-                    DEFAULT_WEB_SEARCH_LIVE_ACCESS,
-                )
-            ),
-            CONF_WEB_SEARCH_USE_HASS_LOCATION: bool(
-                entry_data.get(
-                    CONF_WEB_SEARCH_USE_HASS_LOCATION,
-                    DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
-                )
-            ),
+            **defaults,
         }
         return await self.async_step_auth_manual()
+
+
+class AssistantProfileSubentryFlow(ConfigSubentryFlow):
+    """Add and reconfigure assistants that share the parent OAuth account."""
+
+    _profile_input: dict[str, Any]
+
+    async def async_step_user(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Add another assistant profile."""
+        entry = self._get_entry()
+        defaults = profile_data_defaults(entry.data)
+        # New profiles start with conservative privacy and memory defaults even
+        # when the parent account was migrated from an older full-history entry.
+        defaults[CONF_ENABLE_HISTORY_TOOLS] = False
+        defaults[CONF_MEMORY_MODE] = MEMORY_MODE_RECENT
+        defaults[CONF_MEMORY_MAX_TURNS] = DEFAULT_MEMORY_MAX_TURNS
+        defaults[CONF_MEMORY_MAX_CHARACTERS] = DEFAULT_MEMORY_MAX_CHARACTERS
+        default_name = "Additional assistant"
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                name, data = _parse_profile_form(
+                    user_input,
+                    defaults=defaults,
+                    fallback_name=default_name,
+                )
+            except (ValueError, vol.Invalid):
+                errors["base"] = "unsupported_profile_settings"
+            else:
+                self._profile_input = {"name": name, **data}
+                return await self.async_step_reasoning()
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_profile_schema(defaults, name_default=default_name),
+            errors=errors,
+        )
+
+    async def async_step_reasoning(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Select a compatible thinking level for a new profile."""
+        model = self._profile_input[CONF_MODEL]
+        default_effort = normalize_reasoning_effort(
+            model,
+            self._profile_input.get(CONF_REASONING_EFFORT),
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                effort = validate_reasoning_effort(
+                    model,
+                    user_input.get(CONF_REASONING_EFFORT),
+                )
+            except ValueError:
+                errors["base"] = "unsupported_reasoning"
+            else:
+                data = {
+                    key: value
+                    for key, value in self._profile_input.items()
+                    if key != "name"
+                }
+                data[CONF_REASONING_EFFORT] = effort
+                return self.async_create_entry(
+                    title=self._profile_input["name"],
+                    data=data,
+                )
+
+        return self.async_show_form(
+            step_id="reasoning",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REASONING_EFFORT,
+                        default=default_effort,
+                    ): _reasoning_schema(model)
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "model": get_model_profile(model).display_name,
+            },
+        )
+
+    async def async_step_reconfigure(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Update an existing additional assistant profile."""
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        combined_defaults = dict(entry.data)
+        combined_defaults.update(subentry.data)
+        defaults = profile_data_defaults(combined_defaults)
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                name, data = _parse_profile_form(
+                    user_input,
+                    defaults=defaults,
+                    fallback_name=subentry.title,
+                )
+            except (ValueError, vol.Invalid):
+                errors["base"] = "unsupported_profile_settings"
+            else:
+                self._profile_input = {"name": name, **data}
+                return await self.async_step_reconfigure_reasoning()
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_profile_schema(defaults, name_default=subentry.title),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure_reasoning(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> SubentryFlowResult:
+        """Update an additional profile's thinking level and reload."""
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        model = self._profile_input[CONF_MODEL]
+        current_effort = normalize_reasoning_effort(
+            model,
+            subentry.data.get(CONF_REASONING_EFFORT),
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                effort = validate_reasoning_effort(
+                    model,
+                    user_input.get(CONF_REASONING_EFFORT),
+                )
+            except ValueError:
+                errors["base"] = "unsupported_reasoning"
+            else:
+                data = {
+                    key: value
+                    for key, value in self._profile_input.items()
+                    if key != "name"
+                }
+                data[CONF_REASONING_EFFORT] = effort
+                return self.async_update_and_abort(
+                    entry,
+                    subentry,
+                    title=self._profile_input["name"],
+                    data=data,
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure_reasoning",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_REASONING_EFFORT,
+                        default=current_effort,
+                    ): _reasoning_schema(model)
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "model": get_model_profile(model).display_name,
+            },
+        )
 
 
 # Preserve the class name Home Assistant may reference in older traces/tests.

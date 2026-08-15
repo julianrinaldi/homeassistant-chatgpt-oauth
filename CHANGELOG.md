@@ -2,6 +2,25 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.3.0] - 2026-08-15
+
+### Added
+
+- Multiple Assist conversation profiles can now share one ChatGPT OAuth account while keeping independent model, prompt, thinking-level, tool, web-search, and memory settings.
+- Configurable conversation memory modes for the current turn, recent turns, summarized older turns, or bounded full history.
+- Optional read-only LLM tools for entity history, long-term statistics, and Energy Dashboard data, with exposure checks and bounded query ranges.
+
+### Changed
+
+- Config entries migrate to version 9 and expose profile-specific, non-sensitive diagnostics.
+- Existing entries retain full-history behavior with a 64,000-character safety limit; new profiles default to 12 recent turns and a 16,000-character limit.
+- The package version is now 1.3.0 and declares the Home Assistant recorder and energy dependencies used by history tools.
+
+### Compatibility
+
+- The stable internal domain, default conversation unique ID, OAuth credentials, existing actions, and existing entity IDs remain unchanged.
+- Read-only history tools are disabled by default and never permit database mutation.
+
 ## [1.2.1] - 2026-08-14
 
 ### Changed
@@ -124,3 +143,4 @@ All notable user-facing changes are documented in this file.
 [1.1.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.0...v1.1.1
 [1.2.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.1.1...v1.2.0
 [1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1
+[1.3.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.1...v1.3.0

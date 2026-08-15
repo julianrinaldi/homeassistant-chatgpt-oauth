@@ -1,4 +1,5 @@
 """Tests for Assist history conversion."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -58,13 +59,9 @@ def test_control_feature_follows_entry_setting() -> None:
         )
     )
 
-    assert (
-        enabled.supported_features
-        & conversation.ConversationEntityFeature.CONTROL
-    )
+    assert enabled.supported_features & conversation.ConversationEntityFeature.CONTROL
     assert not (
-        disabled.supported_features
-        & conversation.ConversationEntityFeature.CONTROL
+        disabled.supported_features & conversation.ConversationEntityFeature.CONTROL
     )
 
 
@@ -127,9 +124,7 @@ def test_visible_sources_do_not_create_a_duplicate_card() -> None:
         text="Cited answer.\n\nSources:\n1. Example",
         raw_text="Cited answer.",
         raw_events=[],
-        citations=[
-            WebCitation(url="https://example.com", title="Example")
-        ],
+        citations=[WebCitation(url="https://example.com", title="Example")],
     )
 
     _apply_web_search_presentation(

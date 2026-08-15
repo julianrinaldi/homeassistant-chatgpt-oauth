@@ -1,4 +1,5 @@
 """Tests for chunk-safe Server-Sent Events parsing."""
+
 from __future__ import annotations
 
 import json
@@ -51,9 +52,6 @@ async def test_line_endings_and_unterminated_final_event(separator: bytes) -> No
 async def test_done_sentinel_is_ignored() -> None:
     """The Responses [DONE] sentinel does not become a malformed JSON event."""
     events = [
-        event
-        async for event in iter_sse_json(
-            _FakeResponse([b"data: [DONE]\n\n"])
-        )
+        event async for event in iter_sse_json(_FakeResponse([b"data: [DONE]\n\n"]))
     ]
     assert events == []

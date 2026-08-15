@@ -1,4 +1,5 @@
 """AI Task entity for ChatGPT OAuth data and image generation."""
+
 from __future__ import annotations
 
 from typing import Any, NoReturn
@@ -72,9 +73,7 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
                 profile.slug,
                 client.reasoning_effort,
             ),
-            "transport": (
-                "responses_lite" if profile.responses_lite else "responses"
-            ),
+            "transport": ("responses_lite" if profile.responses_lite else "responses"),
             "maximum_image_attachments": MAX_IMAGE_ATTACHMENTS,
             "web_search_mode": client.web_search_options.mode,
             "web_search_context_size": client.web_search_options.context_size,

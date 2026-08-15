@@ -3,20 +3,26 @@
 The v1 implementation is split into focused modules. These aliases preserve the
 public helper names used by v0.x automations, downstream forks, and tests.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
-import voluptuous as vol
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
+import voluptuous as vol
 
 from .auth import ConfigEntryLike, extract_account_id
 from .client import (
     ChatGPTOAuthClient,
+)
+from .client import (
     build_request_headers as _request_headers,
+)
+from .client import (
     build_turn_payload as _build_turn_payload,
+)
+from .client import (
     serialize_request_payload as _serialize_codex_payload,
 )
 from .content import file_bytes_part, image_bytes_part, image_url_part, text_part
@@ -26,20 +32,44 @@ from .responses import (
     ChatGPTImageResponse,
     ChatGPTTextResponse,
     ChatGPTTurn,
+)
+from .responses import (
     decode_image_item as _decode_image_item,
+)
+from .responses import (
     image_items_from_event as _image_items_from_event,
+)
+from .responses import (
     mime_type_from_output_format as _mime_type_from_output_format,
+)
+from .responses import (
     parse_reported_size as _parse_reported_size,
+)
+from .responses import (
     png_dimensions as _png_dimensions,
+)
+from .responses import (
     response_error_message as _response_error_message,
+)
+from .responses import (
     response_output_items as _response_output_items,
+)
+from .responses import (
     text_from_output_items as _text_from_output_items,
 )
 from .schema import (
     fallback_json_instructions as _fallback_json_instructions,
+)
+from .schema import (
     format_structured_output,
+)
+from .schema import (
     is_structured_output_error as _is_structured_output_error,
+)
+from .schema import (
     parse_and_validate_structured_text as _parse_and_validate_structured_text,
+)
+from .schema import (
     structured_output_format as _structured_output_format,
 )
 from .sse import iter_sse_json as _iter_sse

@@ -1,4 +1,5 @@
 """Model capability catalog for ChatGPT OAuth."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -171,8 +172,7 @@ MODEL_REASONING_EFFORTS: Final = {
     slug: profile.reasoning_efforts for slug, profile in MODEL_PROFILES.items()
 }
 MODEL_DEFAULT_REASONING_EFFORT: Final = {
-    slug: profile.default_reasoning_effort
-    for slug, profile in MODEL_PROFILES.items()
+    slug: profile.default_reasoning_effort for slug, profile in MODEL_PROFILES.items()
 }
 MODEL_REASONING_EFFORT = MODEL_DEFAULT_REASONING_EFFORT
 GENERIC_REASONING_EFFORTS: Final = ("low", "medium", "high", "xhigh")

@@ -1,4 +1,5 @@
 """Tests for multimodal attachment handling."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

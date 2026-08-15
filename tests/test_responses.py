@@ -1,4 +1,5 @@
 """Tests for streamed response parsing helpers."""
+
 from __future__ import annotations
 
 import base64
@@ -22,9 +23,12 @@ from custom_components.openai_oauth_conversation.responses import (
 
 
 def _png(width: int, height: int) -> bytes:
-    return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(
-        ">II", width, height
-    ) + b"\x08\x06\x00\x00\x00"
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + b"\x00\x00\x00\rIHDR"
+        + struct.pack(">II", width, height)
+        + b"\x08\x06\x00\x00\x00"
+    )
 
 
 def test_completed_text_is_extracted() -> None:
@@ -73,9 +77,7 @@ def test_image_items_and_reported_sizes() -> None:
     direct = {"item": {"type": "image_generation_call", "status": "completed"}}
     completed = {
         "response": {
-            "output": [
-                {"type": "image_generation_call", "status": "completed"}
-            ]
+            "output": [{"type": "image_generation_call", "status": "completed"}]
         }
     }
     assert len(image_items_from_event(direct)) == 1

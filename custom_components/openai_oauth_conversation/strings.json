@@ -4,11 +4,15 @@
     "step": {
       "user": {
         "title": "ChatGPT OAuth",
-        "description": "Choose the model and default behavior for this ChatGPT account. Authentication is completed in the next steps.",
+        "description": "Choose the model and behavior for the default assistant that shares this ChatGPT account. Authentication is completed in the next steps.",
         "data": {
           "name": "Name",
           "model": "Model",
           "enable_home_assistant_control": "Enable Home Assistant control",
+          "enable_history_tools": "Enable read-only history tools",
+          "memory_mode": "Conversation memory",
+          "memory_max_turns": "Recent turn limit",
+          "memory_max_characters": "Conversation character limit",
           "web_search_mode": "Web search",
           "web_search_context_size": "Search context size",
           "web_search_include_sources": "Include sources in response text",
@@ -17,15 +21,19 @@
           "prompt": "System prompt"
         },
         "data_description": {
-          "name": "A friendly name for this account in Home Assistant.",
-          "model": "The model used by Assist and AI Task actions.",
-          "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "name": "A friendly name for this conversation assistant.",
+          "model": "The model used by this Assist conversation profile. The default profile's model is also used by AI Task actions and integration actions.",
+          "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "enable_history_tools": "Allow this assistant to read bounded state history, long-term statistics, and exposed Energy Dashboard statistics. The tools cannot change or delete Home Assistant data.",
+          "memory_mode": "Current turn sends only the latest request. Recent turns keeps a fixed number of turns. Summarize older turns compresses earlier context. Full history keeps as much visible chat history as fits the character limit.",
+          "memory_max_turns": "Maximum recent user turns retained verbatim in Recent and Summarized modes.",
+          "memory_max_characters": "Soft limit for user and assistant conversation text sent in one request. The current user turn is always retained.",
           "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
           "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
           "web_search_include_sources": "When enabled, searched answers include clickable citations and a Sources section. Leave disabled for natural voice responses; Assist still exposes the cited answer in a separate card, and integration actions still return citation metadata.",
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
           "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
-          "prompt": "Default instructions used by the Assist agent and integration actions."
+          "prompt": "Instructions used by this Assist conversation profile."
         }
       },
       "reasoning": {
@@ -46,12 +54,16 @@
         }
       },
       "reconfigure": {
-        "title": "ChatGPT OAuth settings",
-        "description": "Update the name, model, Home Assistant control access, web-search behavior, or default system prompt. Your OAuth credentials are not changed.",
+        "title": "Default assistant settings",
+        "description": "Update the default assistant. OAuth credentials and additional assistant profiles are not changed.",
         "data": {
           "name": "Name",
           "model": "Model",
           "enable_home_assistant_control": "Enable Home Assistant control",
+          "enable_history_tools": "Enable read-only history tools",
+          "memory_mode": "Conversation memory",
+          "memory_max_turns": "Recent turn limit",
+          "memory_max_characters": "Conversation character limit",
           "web_search_mode": "Web search",
           "web_search_context_size": "Search context size",
           "web_search_include_sources": "Include sources in response text",
@@ -60,15 +72,19 @@
           "prompt": "System prompt"
         },
         "data_description": {
-          "name": "A friendly name for this account in Home Assistant.",
-          "model": "The model used by Assist and AI Task actions.",
-          "enable_home_assistant_control": "Allow the Assist conversation agent to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "name": "A friendly name for this conversation assistant.",
+          "model": "The model used by this Assist conversation profile. The default profile's model is also used by AI Task actions and integration actions.",
+          "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+          "enable_history_tools": "Allow this assistant to read bounded state history, long-term statistics, and exposed Energy Dashboard statistics. The tools cannot change or delete Home Assistant data.",
+          "memory_mode": "Current turn sends only the latest request. Recent turns keeps a fixed number of turns. Summarize older turns compresses earlier context. Full history keeps as much visible chat history as fits the character limit.",
+          "memory_max_turns": "Maximum recent user turns retained verbatim in Recent and Summarized modes.",
+          "memory_max_characters": "Soft limit for user and assistant conversation text sent in one request. The current user turn is always retained.",
           "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
           "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
           "web_search_include_sources": "When enabled, searched answers include clickable citations and a Sources section. Leave disabled for natural voice responses; Assist still exposes the cited answer in a separate card, and integration actions still return citation metadata.",
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
           "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
-          "prompt": "Default instructions used by the Assist agent and integration actions."
+          "prompt": "Instructions used by this Assist conversation profile."
         }
       },
       "reconfigure_reasoning": {
@@ -89,12 +105,113 @@
       "unknown": "An unexpected error occurred while setting up ChatGPT OAuth.",
       "unsupported_model": "Select one of the models shown in the list.",
       "unsupported_model_or_web_search": "Select a supported model and valid web-search settings.",
-      "unsupported_reasoning": "Select a thinking level available for the chosen model."
+      "unsupported_reasoning": "Select a thinking level available for the chosen model.",
+      "unsupported_profile_settings": "Select supported assistant, history, memory, and web-search settings."
     },
     "abort": {
       "already_configured": "This ChatGPT account is already configured.",
       "reauth_successful": "ChatGPT OAuth authentication was renewed successfully.",
       "reconfigure_successful": "ChatGPT OAuth settings were updated successfully."
+    }
+  },
+  "config_subentries": {
+    "assistant": {
+      "entry_type": "Assistant profile",
+      "initiate_flow": {
+        "user": "Add assistant profile",
+        "reconfigure": "Reconfigure assistant profile"
+      },
+      "step": {
+        "user": {
+          "title": "Assistant profile",
+          "description": "Add another Assist conversation agent that shares the existing ChatGPT OAuth account but has independent model, prompt, tool, web-search, and memory settings.",
+          "data": {
+            "name": "Name",
+            "model": "Model",
+            "enable_home_assistant_control": "Enable Home Assistant control",
+            "enable_history_tools": "Enable read-only history tools",
+            "memory_mode": "Conversation memory",
+            "memory_max_turns": "Recent turn limit",
+            "memory_max_characters": "Conversation character limit",
+            "web_search_mode": "Web search",
+            "web_search_context_size": "Search context size",
+            "web_search_include_sources": "Include sources in response text",
+            "web_search_live_access": "Live internet access",
+            "web_search_use_home_assistant_location": "Use Home Assistant location",
+            "prompt": "System prompt"
+          },
+          "data_description": {
+            "name": "A friendly name for this conversation assistant.",
+            "model": "The model used by this additional Assist conversation profile. It does not change the model used by AI Task actions or integration actions.",
+            "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+            "enable_history_tools": "Allow this assistant to read bounded state history, long-term statistics, and exposed Energy Dashboard statistics. The tools cannot change or delete Home Assistant data.",
+            "memory_mode": "Current turn sends only the latest request. Recent turns keeps a fixed number of turns. Summarize older turns compresses earlier context. Full history keeps as much visible chat history as fits the character limit.",
+            "memory_max_turns": "Maximum recent user turns retained verbatim in Recent and Summarized modes.",
+            "memory_max_characters": "Soft limit for user and assistant conversation text sent in one request. The current user turn is always retained.",
+            "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
+            "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
+            "web_search_include_sources": "When enabled, searched answers include clickable citations and a Sources section. Leave disabled for natural voice responses; Assist still exposes the cited answer in a separate card, and integration actions still return citation metadata.",
+            "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
+            "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+            "prompt": "Instructions used by this Assist conversation profile."
+          }
+        },
+        "reasoning": {
+          "title": "Thinking level",
+          "description": "Choose a thinking level available for **{model}**. Higher levels can improve difficult tasks but may respond more slowly. Ultra uses Max model reasoning because Codex subagent delegation is not available inside Home Assistant.",
+          "data": {
+            "reasoning_effort": "Thinking level"
+          }
+        },
+        "reconfigure": {
+          "title": "Assistant profile settings",
+          "description": "Update this additional Assist conversation profile. The shared OAuth account and default assistant are not changed.",
+          "data": {
+            "name": "Name",
+            "model": "Model",
+            "enable_home_assistant_control": "Enable Home Assistant control",
+            "enable_history_tools": "Enable read-only history tools",
+            "memory_mode": "Conversation memory",
+            "memory_max_turns": "Recent turn limit",
+            "memory_max_characters": "Conversation character limit",
+            "web_search_mode": "Web search",
+            "web_search_context_size": "Search context size",
+            "web_search_include_sources": "Include sources in response text",
+            "web_search_live_access": "Live internet access",
+            "web_search_use_home_assistant_location": "Use Home Assistant location",
+            "prompt": "System prompt"
+          },
+          "data_description": {
+            "name": "A friendly name for this conversation assistant.",
+            "model": "The model used by this additional Assist conversation profile. It does not change the model used by AI Task actions or integration actions.",
+            "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
+            "enable_history_tools": "Allow this assistant to read bounded state history, long-term statistics, and exposed Energy Dashboard statistics. The tools cannot change or delete Home Assistant data.",
+            "memory_mode": "Current turn sends only the latest request. Recent turns keeps a fixed number of turns. Summarize older turns compresses earlier context. Full history keeps as much visible chat history as fits the character limit.",
+            "memory_max_turns": "Maximum recent user turns retained verbatim in Recent and Summarized modes.",
+            "memory_max_characters": "Soft limit for user and assistant conversation text sent in one request. The current user turn is always retained.",
+            "web_search_mode": "Disabled never exposes web search. Automatic lets the model search when useful. Required must return a web-search call or citation before the answer is accepted.",
+            "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
+            "web_search_include_sources": "When enabled, searched answers include clickable citations and a Sources section. Leave disabled for natural voice responses; Assist still exposes the cited answer in a separate card, and integration actions still return citation metadata.",
+            "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
+            "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+            "prompt": "Instructions used by this Assist conversation profile."
+          }
+        },
+        "reconfigure_reasoning": {
+          "title": "Thinking level",
+          "description": "Choose a thinking level available for **{model}**. Higher levels can improve difficult tasks but may respond more slowly. Ultra uses Max model reasoning because Codex subagent delegation is not available inside Home Assistant.",
+          "data": {
+            "reasoning_effort": "Thinking level"
+          }
+        }
+      },
+      "error": {
+        "unsupported_profile_settings": "Select supported assistant, history, memory, and web-search settings.",
+        "unsupported_reasoning": "Select a thinking level available for the chosen model."
+      },
+      "abort": {
+        "reconfigure_successful": "The assistant profile was updated successfully."
+      }
     }
   }
 }

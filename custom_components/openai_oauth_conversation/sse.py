@@ -1,8 +1,9 @@
 """Chunk-safe Server-Sent Events parsing for ChatGPT OAuth."""
+
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
+import json
 from typing import Any
 
 import aiohttp
@@ -83,9 +84,7 @@ async def iter_sse_json(
             continue
         buffer.extend(chunk)
         if len(buffer) + data_size > MAX_SSE_EVENT_BYTES + 1024:
-            raise ResponseParseError(
-                "ChatGPT returned an SSE event larger than 100 MB"
-            )
+            raise ResponseParseError("ChatGPT returned an SSE event larger than 100 MB")
 
         while True:
             cr_index = buffer.find(b"\r", scan_from)

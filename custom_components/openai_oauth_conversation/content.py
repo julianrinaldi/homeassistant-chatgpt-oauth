@@ -1,17 +1,17 @@
 """Multimodal content and attachment helpers for ChatGPT OAuth."""
+
 from __future__ import annotations
 
 import base64
-import mimetypes
 from functools import partial
+import mimetypes
 from pathlib import Path
 from typing import Any
 
 import aiohttp
-from yarl import URL
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from yarl import URL
 
 from .const import (
     MAX_ATTACHMENT_BYTES,
@@ -107,11 +107,7 @@ def detect_image_mime_type(data: bytes) -> str | None:
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
-    if (
-        len(data) >= 12
-        and data.startswith(b"RIFF")
-        and data[8:12] == b"WEBP"
-    ):
+    if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "image/webp"
     if data.startswith((b"GIF87a", b"GIF89a")):
         return "image/gif"
@@ -142,8 +138,7 @@ def _attachment_path(attachment: Any) -> Path:
 
 def _attachment_mime_type(attachment: Any, path: Path) -> str | None:
     return normalize_mime_type(
-        getattr(attachment, "mime_type", None)
-        or mimetypes.guess_type(str(path))[0]
+        getattr(attachment, "mime_type", None) or mimetypes.guess_type(str(path))[0]
     )
 
 
@@ -179,9 +174,7 @@ def read_data_attachments(attachments: list[Any]) -> list[dict[str, Any]]:
         data = _read_file_bytes(path, label="AI Task")
         total_bytes += len(data)
         if total_bytes > MAX_ATTACHMENTS_TOTAL_BYTES:
-            raise RequestValidationError(
-                "AI Task attachments must total 50 MB or less"
-            )
+            raise RequestValidationError("AI Task attachments must total 50 MB or less")
 
         mime_type = _attachment_mime_type(attachment, path)
         detected_image = detect_image_mime_type(data)
@@ -237,7 +230,7 @@ async def image_part_from_local_file(
     raw_path: str,
 ) -> dict[str, str]:
     """Read an image from an allowed Home Assistant path."""
-    path = Path(raw_path).expanduser()
+    path = Path(raw_path).expanduser()  # noqa: ASYNC240
     if not path.is_absolute():
         path = Path(hass.config.path(raw_path))
     try:

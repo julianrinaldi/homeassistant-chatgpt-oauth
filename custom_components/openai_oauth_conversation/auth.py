@@ -1,23 +1,23 @@
 """OAuth helpers and token lifecycle management for ChatGPT OAuth."""
+
 from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Mapping
+from dataclasses import dataclass
 import hashlib
 import json
 import secrets
 import time
-from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import parse_qs
 
 import aiohttp
-from yarl import URL
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from yarl import URL
 
 from .const import (
     AUTHORIZE_URL,
@@ -190,9 +190,9 @@ def _token_data_from_payload(
         ) from err
     if expires_seconds <= 0:
         raise ResponseParseError("OAuth response did not include a positive expiry")
-    account_id = extract_account_id(
-        payload.get("id_token")
-    ) or extract_account_id(access)
+    account_id = extract_account_id(payload.get("id_token")) or extract_account_id(
+        access
+    )
     return OAuthTokenData(
         access_token=access,
         refresh_token=refresh,
@@ -339,9 +339,7 @@ class OAuthTokenManager:
         if not isinstance(payload, dict):
             raise ResponseParseError("OAuth refresh returned an invalid response")
 
-        token_data = _token_data_from_payload(
-            payload, fallback_refresh_token=refresh
-        )
+        token_data = _token_data_from_payload(payload, fallback_refresh_token=refresh)
         self._persist_token_data(token_data)
         return token_data.access_token
 

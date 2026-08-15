@@ -1,4 +1,5 @@
 """Tests for safe backend error messages."""
+
 from __future__ import annotations
 
 from custom_components.openai_oauth_conversation.exceptions import (
