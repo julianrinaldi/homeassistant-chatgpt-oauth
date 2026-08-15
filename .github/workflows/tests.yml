@@ -39,7 +39,7 @@ jobs:
             "pytest-cov>=6.0" \
             "pytest-homeassistant-custom-component==${{ matrix.pytest_ha }}" \
             "ruff==0.16.0"
-      - name: Install Home Assistant conversation dependencies
+      - name: Install imported Home Assistant component dependencies
         run: |
           python - <<'PY'
           import json
@@ -49,15 +49,15 @@ jobs:
 
           import homeassistant
 
-          manifest = (
-              Path(homeassistant.__file__).parent
-              / "components"
-              / "conversation"
-              / "manifest.json"
-          )
-          requirements = json.loads(manifest.read_text())["requirements"]
+          components = Path(homeassistant.__file__).parent / "components"
+          requirements = []
+          for domain in ("conversation", "camera"):
+              manifest = components / domain / "manifest.json"
+              requirements.extend(
+                  json.loads(manifest.read_text()).get("requirements", [])
+              )
           subprocess.run(
-              [sys.executable, "-m", "pip", "install", *requirements],
+              [sys.executable, "-m", "pip", "install", *sorted(set(requirements))],
               check=True,
           )
           PY

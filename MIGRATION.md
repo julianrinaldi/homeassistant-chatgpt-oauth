@@ -2,7 +2,7 @@
 
 ## From 1.7.0 to 1.7.1
 
-Version 1.7.1 corrects the clean-runner release test setup. Integration behavior, selected-script access, restricted prompt templates, OAuth credentials, entities, and stored configuration are unchanged. No reauthentication, migration action, or reconfiguration is required.
+Version 1.7.1 corrects the clean-runner release test setup for dynamically loaded Home Assistant component packages. Integration behavior, selected-script access, restricted prompt templates, OAuth credentials, entities, and stored configuration are unchanged. No reauthentication, migration action, or reconfiguration is required.
 
 ## From 1.6.x to 1.7.0
 

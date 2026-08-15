@@ -6,8 +6,8 @@ All notable user-facing changes are documented in this file.
 
 ### Fixed
 
-- Clean GitHub Actions runners now install the exact Home Assistant conversation requirements before collecting integration tests.
-- The release test matrix can validate both the minimum supported Home Assistant 2026.4.0 release and Home Assistant 2026.7.4 instead of failing because the runner omitted Home Assistant's dynamically installed conversation packages.
+- Clean GitHub Actions runners now install the exact requirements declared by the Home Assistant conversation and camera components before collecting integration tests.
+- The release test matrix can validate both the minimum supported Home Assistant 2026.4.0 release and Home Assistant 2026.7.4 instead of failing because the runner omitted Home Assistant's dynamically installed component packages.
 
 ### Compatibility
 
