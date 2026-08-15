@@ -38,7 +38,9 @@ from .const import (
     CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
+    CONF_PROMPT_TEMPLATE_ENTITIES,
     CONF_REASONING_EFFORT,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -58,6 +60,8 @@ from .const import (
     DEFAULT_MEMORY_MODE,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
+    DEFAULT_PROMPT_TEMPLATE_ENTITIES,
+    DEFAULT_SELECTED_SCRIPT_ENTITIES,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
     DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
@@ -71,6 +75,8 @@ from .const import (
     LOGGER,
     MAX_ATTACHMENTS_TOTAL_BYTES,
     MAX_IMAGE_ATTACHMENTS,
+    MAX_PROMPT_TEMPLATE_ENTITIES,
+    MAX_SELECTED_SCRIPT_TOOLS,
     MIGRATED_MEMORY_MAX_CHARACTERS,
     MIGRATED_MEMORY_MODE,
     SERVICE_ANALYZE_IMAGE,
@@ -103,6 +109,7 @@ from .models import (
 )
 from .profiles import (
     assistant_profiles_fingerprint,
+    normalize_entity_ids,
     normalize_max_tool_calls,
     normalize_max_tool_time,
     normalize_memory_max_characters,
@@ -489,7 +496,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 12:
+    if entry.version > 13:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -531,6 +538,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ai_media_tools
         if isinstance(ai_media_tools, bool)
         else DEFAULT_ENABLE_AI_MEDIA_TOOLS
+    )
+    data[CONF_SELECTED_SCRIPT_ENTITIES] = normalize_entity_ids(
+        data.get(CONF_SELECTED_SCRIPT_ENTITIES, DEFAULT_SELECTED_SCRIPT_ENTITIES),
+        domain="script",
+        maximum=MAX_SELECTED_SCRIPT_TOOLS,
+    )
+    data[CONF_PROMPT_TEMPLATE_ENTITIES] = normalize_entity_ids(
+        data.get(
+            CONF_PROMPT_TEMPLATE_ENTITIES,
+            DEFAULT_PROMPT_TEMPLATE_ENTITIES,
+        ),
+        maximum=MAX_PROMPT_TEMPLATE_ENTITIES,
     )
 
     for key, default in (
@@ -660,8 +679,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 12 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=12)
+    if entry.version < 13 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=13)
     return True
 
 

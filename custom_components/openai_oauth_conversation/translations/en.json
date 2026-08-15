@@ -11,6 +11,7 @@
           "enable_home_assistant_control": "Enable Home Assistant control",
           "enable_history_tools": "Use Home Assistant history",
           "enable_ai_media_tools": "Let Assist analyze cameras and create images",
+          "selected_script_tools": "Scripts this assistant may run",
           "include_user_context": "Use the current user's display name",
           "include_satellite_room_context": "Use the voice satellite and current room",
           "include_room_entities": "Include exposed entities in the current room",
@@ -25,6 +26,7 @@
           "web_search_live_access": "Live internet access",
           "web_search_use_home_assistant_location": "Share approximate location",
           "web_search_use_home_assistant_precise_location": "Share precise home location",
+          "prompt_template_entities": "Entities the system prompt may read",
           "prompt": "System prompt"
         },
         "data_description": {
@@ -33,6 +35,7 @@
           "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
           "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
           "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",
+          "selected_script_tools": "Each selected script becomes one named, strongly typed tool. The assistant cannot choose another script or add undeclared fields. Script fields and selectors validate inputs, and the initiating user must have permission to control the script.",
           "include_user_context": "Shares only the initiating Home Assistant user's resolved display name with ChatGPT. Internal user IDs and other household members are never included. Disabled by default.",
           "include_satellite_room_context": "Shares the voice satellite, associated device, and current room as human-readable labels. Internal IDs, the configured home name, address, and coordinates are not sent. Disabled by default.",
           "include_room_entities": "Shares the names, types, and current states of up to 40 relevant entities in the current room. Only entities already exposed to Assist are included. Disabled by default.",
@@ -47,7 +50,8 @@
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
           "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
           "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
-          "prompt": "Instructions used by this Assist conversation profile."
+          "prompt_template_entities": "Allows restricted states(), is_state(), and state_attr() lookups for only these selected entities. The initiating user must also have permission to read them. Other Home Assistant entities remain unavailable to the template.",
+          "prompt": "Instructions used by this Assist conversation profile. Supports restricted Jinja variables including user_name, area_name, room_name, satellite_name, device_name, room_entities, local_time, and now(). User and room values remain empty unless their privacy settings are enabled."
         }
       },
       "reasoning": {
@@ -76,6 +80,7 @@
           "enable_home_assistant_control": "Enable Home Assistant control",
           "enable_history_tools": "Use Home Assistant history",
           "enable_ai_media_tools": "Let Assist analyze cameras and create images",
+          "selected_script_tools": "Scripts this assistant may run",
           "include_user_context": "Use the current user's display name",
           "include_satellite_room_context": "Use the voice satellite and current room",
           "include_room_entities": "Include exposed entities in the current room",
@@ -90,6 +95,7 @@
           "web_search_live_access": "Live internet access",
           "web_search_use_home_assistant_location": "Share approximate location",
           "web_search_use_home_assistant_precise_location": "Share precise home location",
+          "prompt_template_entities": "Entities the system prompt may read",
           "prompt": "System prompt"
         },
         "data_description": {
@@ -98,6 +104,7 @@
           "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
           "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
           "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",
+          "selected_script_tools": "Each selected script becomes one named, strongly typed tool. The assistant cannot choose another script or add undeclared fields. Script fields and selectors validate inputs, and the initiating user must have permission to control the script.",
           "include_user_context": "Shares only the initiating Home Assistant user's resolved display name with ChatGPT. Internal user IDs and other household members are never included. Disabled by default.",
           "include_satellite_room_context": "Shares the voice satellite, associated device, and current room as human-readable labels. Internal IDs, the configured home name, address, and coordinates are not sent. Disabled by default.",
           "include_room_entities": "Shares the names, types, and current states of up to 40 relevant entities in the current room. Only entities already exposed to Assist are included. Disabled by default.",
@@ -112,7 +119,8 @@
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
           "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
           "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
-          "prompt": "Instructions used by this Assist conversation profile."
+          "prompt_template_entities": "Allows restricted states(), is_state(), and state_attr() lookups for only these selected entities. The initiating user must also have permission to read them. Other Home Assistant entities remain unavailable to the template.",
+          "prompt": "Instructions used by this Assist conversation profile. Supports restricted Jinja variables including user_name, area_name, room_name, satellite_name, device_name, room_entities, local_time, and now(). User and room values remain empty unless their privacy settings are enabled."
         }
       },
       "reconfigure_reasoning": {
@@ -134,7 +142,7 @@
       "unsupported_model": "Select one of the models shown in the list.",
       "unsupported_model_or_web_search": "Select a supported model and valid web-search settings.",
       "unsupported_reasoning": "Select a thinking level available for the chosen model.",
-      "unsupported_profile_settings": "Select supported assistant, history, memory, and web-search settings."
+      "unsupported_profile_settings": "Select supported assistant, script, prompt-template, history, memory, and web-search settings."
     },
     "abort": {
       "already_configured": "This ChatGPT account is already configured.",
@@ -159,6 +167,7 @@
             "enable_home_assistant_control": "Enable Home Assistant control",
             "enable_history_tools": "Use Home Assistant history",
             "enable_ai_media_tools": "Let Assist analyze cameras and create images",
+            "selected_script_tools": "Scripts this assistant may run",
             "include_user_context": "Use the current user's display name",
             "include_satellite_room_context": "Use the voice satellite and current room",
             "include_room_entities": "Include exposed entities in the current room",
@@ -173,6 +182,7 @@
             "web_search_live_access": "Live internet access",
             "web_search_use_home_assistant_location": "Share approximate location",
             "web_search_use_home_assistant_precise_location": "Share precise home location",
+            "prompt_template_entities": "Entities the system prompt may read",
             "prompt": "System prompt"
           },
           "data_description": {
@@ -181,6 +191,7 @@
             "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
             "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
             "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",
+            "selected_script_tools": "Each selected script becomes one named, strongly typed tool. The assistant cannot choose another script or add undeclared fields. Script fields and selectors validate inputs, and the initiating user must have permission to control the script.",
             "include_user_context": "Shares only the initiating Home Assistant user's resolved display name with ChatGPT. Internal user IDs and other household members are never included. Disabled by default.",
             "include_satellite_room_context": "Shares the voice satellite, associated device, and current room as human-readable labels. Internal IDs, the configured home name, address, and coordinates are not sent. Disabled by default.",
             "include_room_entities": "Shares the names, types, and current states of up to 40 relevant entities in the current room. Only entities already exposed to Assist are included. Disabled by default.",
@@ -195,7 +206,8 @@
             "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
             "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
             "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
-            "prompt": "Instructions used by this Assist conversation profile."
+            "prompt_template_entities": "Allows restricted states(), is_state(), and state_attr() lookups for only these selected entities. The initiating user must also have permission to read them. Other Home Assistant entities remain unavailable to the template.",
+            "prompt": "Instructions used by this Assist conversation profile. Supports restricted Jinja variables including user_name, area_name, room_name, satellite_name, device_name, room_entities, local_time, and now(). User and room values remain empty unless their privacy settings are enabled."
           }
         },
         "reasoning": {
@@ -214,6 +226,7 @@
             "enable_home_assistant_control": "Enable Home Assistant control",
             "enable_history_tools": "Use Home Assistant history",
             "enable_ai_media_tools": "Let Assist analyze cameras and create images",
+            "selected_script_tools": "Scripts this assistant may run",
             "include_user_context": "Use the current user's display name",
             "include_satellite_room_context": "Use the voice satellite and current room",
             "include_room_entities": "Include exposed entities in the current room",
@@ -228,6 +241,7 @@
             "web_search_live_access": "Live internet access",
             "web_search_use_home_assistant_location": "Share approximate location",
             "web_search_use_home_assistant_precise_location": "Share precise home location",
+            "prompt_template_entities": "Entities the system prompt may read",
             "prompt": "System prompt"
           },
           "data_description": {
@@ -236,6 +250,7 @@
             "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
             "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
             "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",
+            "selected_script_tools": "Each selected script becomes one named, strongly typed tool. The assistant cannot choose another script or add undeclared fields. Script fields and selectors validate inputs, and the initiating user must have permission to control the script.",
             "include_user_context": "Shares only the initiating Home Assistant user's resolved display name with ChatGPT. Internal user IDs and other household members are never included. Disabled by default.",
             "include_satellite_room_context": "Shares the voice satellite, associated device, and current room as human-readable labels. Internal IDs, the configured home name, address, and coordinates are not sent. Disabled by default.",
             "include_room_entities": "Shares the names, types, and current states of up to 40 relevant entities in the current room. Only entities already exposed to Assist are included. Disabled by default.",
@@ -250,7 +265,8 @@
             "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
             "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
             "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
-            "prompt": "Instructions used by this Assist conversation profile."
+            "prompt_template_entities": "Allows restricted states(), is_state(), and state_attr() lookups for only these selected entities. The initiating user must also have permission to read them. Other Home Assistant entities remain unavailable to the template.",
+            "prompt": "Instructions used by this Assist conversation profile. Supports restricted Jinja variables including user_name, area_name, room_name, satellite_name, device_name, room_entities, local_time, and now(). User and room values remain empty unless their privacy settings are enabled."
           }
         },
         "reconfigure_reasoning": {
@@ -262,7 +278,7 @@
         }
       },
       "error": {
-        "unsupported_profile_settings": "Select supported assistant, history, memory, and web-search settings.",
+        "unsupported_profile_settings": "Select supported assistant, script, prompt-template, history, memory, and web-search settings.",
         "unsupported_reasoning": "Select a thinking level available for the chosen model."
       },
       "abort": {

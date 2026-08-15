@@ -20,8 +20,10 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
+    CONF_PROMPT_TEMPLATE_ENTITIES,
     CONF_REASONING_EFFORT,
     CONF_REFRESH_TOKEN,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -53,7 +55,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 12
+    assert entry.version == 13
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
@@ -62,6 +64,8 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
     assert entry.data[CONF_ENABLE_AI_MEDIA_TOOLS] is False
     assert entry.data[CONF_ENABLE_HISTORY_TOOLS] is False
+    assert entry.data[CONF_SELECTED_SCRIPT_ENTITIES] == []
+    assert entry.data[CONF_PROMPT_TEMPLATE_ENTITIES] == []
     assert entry.data[CONF_INCLUDE_USER_CONTEXT] is False
     assert entry.data[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is False
     assert entry.data[CONF_INCLUDE_ROOM_ENTITIES] is False

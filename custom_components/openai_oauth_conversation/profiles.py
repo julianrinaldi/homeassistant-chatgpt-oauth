@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.core import valid_entity_id
 
 from .const import (
     CONF_ENABLE_AI_MEDIA_TOOLS,
@@ -22,7 +23,9 @@ from .const import (
     CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
+    CONF_PROMPT_TEMPLATE_ENTITIES,
     CONF_REASONING_EFFORT,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -42,6 +45,8 @@ from .const import (
     DEFAULT_MEMORY_MODE,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
+    DEFAULT_PROMPT_TEMPLATE_ENTITIES,
+    DEFAULT_SELECTED_SCRIPT_ENTITIES,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
     DEFAULT_WEB_SEARCH_INCLUDE_SOURCES,
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
@@ -50,6 +55,8 @@ from .const import (
     DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     MAX_MEMORY_MAX_CHARACTERS,
     MAX_MEMORY_MAX_TURNS,
+    MAX_PROMPT_TEMPLATE_ENTITIES,
+    MAX_SELECTED_SCRIPT_TOOLS,
     MAX_TOOL_CALLS,
     MAX_TOOL_TIME,
     MEMORY_MODES,
@@ -79,6 +86,8 @@ class AssistantProfileSettings:
     enable_home_assistant_control: bool
     enable_history_tools: bool
     enable_ai_media_tools: bool
+    selected_script_entities: tuple[str, ...]
+    prompt_template_entities: tuple[str, ...]
     include_user_context: bool
     include_satellite_room_context: bool
     include_room_entities: bool
@@ -229,6 +238,21 @@ def profile_data_defaults(
             CONF_ENABLE_AI_MEDIA_TOOLS,
             DEFAULT_ENABLE_AI_MEDIA_TOOLS,
         ),
+        CONF_SELECTED_SCRIPT_ENTITIES: normalize_entity_ids(
+            source.get(
+                CONF_SELECTED_SCRIPT_ENTITIES,
+                DEFAULT_SELECTED_SCRIPT_ENTITIES,
+            ),
+            domain="script",
+            maximum=MAX_SELECTED_SCRIPT_TOOLS,
+        ),
+        CONF_PROMPT_TEMPLATE_ENTITIES: normalize_entity_ids(
+            source.get(
+                CONF_PROMPT_TEMPLATE_ENTITIES,
+                DEFAULT_PROMPT_TEMPLATE_ENTITIES,
+            ),
+            maximum=MAX_PROMPT_TEMPLATE_ENTITIES,
+        ),
         CONF_INCLUDE_USER_CONTEXT: _bool_setting(
             source,
             CONF_INCLUDE_USER_CONTEXT,
@@ -314,6 +338,8 @@ def resolve_assistant_profile(
         enable_home_assistant_control=normalized[CONF_ENABLE_HASS_CONTROL],
         enable_history_tools=normalized[CONF_ENABLE_HISTORY_TOOLS],
         enable_ai_media_tools=normalized[CONF_ENABLE_AI_MEDIA_TOOLS],
+        selected_script_entities=tuple(normalized[CONF_SELECTED_SCRIPT_ENTITIES]),
+        prompt_template_entities=tuple(normalized[CONF_PROMPT_TEMPLATE_ENTITIES]),
         include_user_context=normalized[CONF_INCLUDE_USER_CONTEXT],
         include_satellite_room_context=normalized[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT],
         include_room_entities=normalized[CONF_INCLUDE_ROOM_ENTITIES],
@@ -383,6 +409,15 @@ def profile_data_from_input(
             merged,
             CONF_ENABLE_AI_MEDIA_TOOLS,
             base[CONF_ENABLE_AI_MEDIA_TOOLS],
+        ),
+        CONF_SELECTED_SCRIPT_ENTITIES: normalize_entity_ids(
+            merged.get(CONF_SELECTED_SCRIPT_ENTITIES),
+            domain="script",
+            maximum=MAX_SELECTED_SCRIPT_TOOLS,
+        ),
+        CONF_PROMPT_TEMPLATE_ENTITIES: normalize_entity_ids(
+            merged.get(CONF_PROMPT_TEMPLATE_ENTITIES),
+            maximum=MAX_PROMPT_TEMPLATE_ENTITIES,
         ),
         CONF_INCLUDE_USER_CONTEXT: _bool_setting(
             merged,
@@ -455,6 +490,35 @@ def _nonempty_prompt(value: object) -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return DEFAULT_PROMPT
+
+
+def normalize_entity_ids(
+    value: object,
+    *,
+    domain: str | None = None,
+    maximum: int,
+) -> list[str]:
+    """Return a unique, bounded list of valid entity IDs."""
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, (list, tuple, set, frozenset)):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in values:
+        if not isinstance(item, str):
+            continue
+        entity_id = item.strip().lower()
+        if (
+            not valid_entity_id(entity_id)
+            or (domain is not None and entity_id.partition(".")[0] != domain)
+            or entity_id in seen
+        ):
+            continue
+        seen.add(entity_id)
+        normalized.append(entity_id)
+        if len(normalized) >= maximum:
+            break
+    return normalized
 
 
 def _bool_setting(

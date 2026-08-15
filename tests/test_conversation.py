@@ -9,6 +9,7 @@ from homeassistant.components import conversation
 from custom_components.openai_oauth_conversation.const import (
     AI_MEDIA_LLM_API_ID,
     CONF_ENABLE_HASS_CONTROL,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     EVENT_CONVERSATION_FINISHED,
 )
 from custom_components.openai_oauth_conversation.conversation import (
@@ -69,6 +70,21 @@ def test_control_feature_follows_entry_setting() -> None:
     assert enabled.supported_features & conversation.ConversationEntityFeature.CONTROL
     assert not (
         disabled.supported_features & conversation.ConversationEntityFeature.CONTROL
+    )
+
+    selected_script = ChatGPTOAuthConversationEntity(
+        SimpleNamespace(
+            entry_id="selected-script",
+            title="Selected script",
+            data={
+                CONF_ENABLE_HASS_CONTROL: False,
+                CONF_SELECTED_SCRIPT_ENTITIES: ["script.movie_night"],
+            },
+        )
+    )
+    assert (
+        selected_script.supported_features
+        & conversation.ConversationEntityFeature.CONTROL
     )
 
 

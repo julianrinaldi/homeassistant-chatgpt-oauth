@@ -1,5 +1,31 @@
 # Migrating ChatGPT OAuth
 
+## From 1.6.x to 1.7.0
+
+Version 1.7.0 adds selected Home Assistant scripts as strongly typed Assist tools and restricted Jinja system prompts with explicitly selected entity-state access.
+
+### Preserved automatically
+
+- Existing config entries and OAuth credentials
+- Conversation and AI Task entity identities
+- Assistant profiles, prompts, models, thinking levels, memory, web-search, context, camera, and tool-safety settings
+- Existing actions and automations
+
+No reauthentication is required. Entries migrate automatically to config-entry version 13.
+
+### New defaults
+
+Existing profiles receive no selected scripts and no prompt-readable entities. This means the upgrade does not grant new device, script, or entity access automatically.
+
+Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** to choose:
+
+```text
+Scripts this assistant may run
+Entities the system prompt may read
+```
+
+Configured prompt text is preserved. Restricted Jinja variables are rendered per request, while state lookup functions return values only for explicitly selected entities that the initiating Home Assistant user may read.
+
 ## From 1.5.0 to 1.6.0
 
 Version 1.6.0 lets the Assist conversation agent delegate generation and analysis to this integration's AI Task entity, inspect explicitly exposed camera snapshots, and create or edit images.

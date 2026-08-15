@@ -75,6 +75,18 @@ def _profile_diagnostics(
             "requires_user_entity_permissions": True,
             "generated_image_bytes_in_diagnostics": False,
         },
+        "selected_script_tools": {
+            "enabled": bool(settings.selected_script_entities),
+            "selected_count": len(settings.selected_script_entities),
+            "script_entity_ids_in_diagnostics": False,
+            "requires_user_entity_permissions": True,
+        },
+        "restricted_prompt_template": {
+            "enabled": True,
+            "selected_entity_count": len(settings.prompt_template_entities),
+            "prompt_source_in_diagnostics": False,
+            "unrestricted_state_access": False,
+        },
         "request_context": {
             "user_display_name_enabled": settings.include_user_context,
             "satellite_and_room_labels_enabled": (
@@ -168,6 +180,8 @@ async def async_get_config_entry_diagnostics(
             "conversation_ai_task_tools": True,
             "exposed_camera_snapshot_analysis": True,
             "assist_image_generation": True,
+            "selected_typed_script_tools": True,
+            "restricted_jinja_system_prompts": True,
         },
         "assistant_profiles": profiles,
     }

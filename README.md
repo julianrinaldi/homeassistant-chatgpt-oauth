@@ -21,6 +21,8 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, Ope
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
 - Opt-in Assist tools that delegate text and image work to the integration's AI Task entity, analyze exposed camera snapshots, and create or edit images.
+- Per-profile selected Home Assistant scripts exposed as named, strongly typed tools with independently validated fields.
+- Restricted Jinja system prompts with privacy-gated user and room variables plus explicitly selected entity-state access.
 - Opt-in current-user, voice-satellite, device, room, and exposed room-entity context.
 - Configurable tool-call and tool-time limits with repeated-call and no-progress detection.
 - Privacy-safe `chatgpt_oauth.conversation_finished` events for automations and diagnostics.
@@ -92,15 +94,16 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 4. Enter a friendly name and select a model.
 5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
 6. Choose whether Assist may use this integration's AI Task entity and cameras or image entities exposed to Assist.
-7. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
-8. Set the maximum Home Assistant tool calls and combined tool time for each message.
-9. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
-10. Optionally customize the system prompt.
-11. Choose a thinking level supported by the selected model.
-12. Open the displayed ChatGPT sign-in link.
-13. Complete sign-in in the browser.
-14. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
-15. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
+7. Optionally select the exact Home Assistant scripts this assistant may run as named tools.
+8. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
+9. Set the maximum Home Assistant tool calls and combined tool time for each message.
+10. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
+11. Optionally select entities that a restricted Jinja system prompt may read, then customize the prompt.
+12. Choose a thinking level supported by the selected model.
+13. Open the displayed ChatGPT sign-in link.
+14. Complete sign-in in the browser.
+15. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
+16. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
 
 The callback URL contains a short-lived authorization code. Treat it as sensitive and do not post it in issues or logs.
 
@@ -223,6 +226,41 @@ After setup, choose the new conversation agent in an Assist pipeline:
 When **Enable Home Assistant control** is turned on, the agent receives Home Assistant's Assist tool API and may inspect or control entities exposed to Assist. Turn the option off under **Settings → Devices & services → ChatGPT OAuth → Reconfigure** for conversation-only behavior.
 
 Only entities explicitly exposed to Assist are made available through Home Assistant's LLM tools. The model can still make mistakes; use normal Home Assistant permissions and avoid exposing safety-critical actions.
+
+### Selected Home Assistant scripts
+
+Use **Scripts this assistant may run** under an assistant profile's **Reconfigure** screen to choose up to 20 scripts. Each selected script becomes a separate model tool with a stable generated tool name, the script's friendly name and description, and parameters derived from its Home Assistant fields.
+
+Script selectors provide the strongest schemas. Number limits, select options, booleans, dates, times, durations, entity selectors, and other Home Assistant selector types are preserved in the tool declaration and validated again before execution. A field without a selector uses a conservative scalar type inferred from its default or example; otherwise it accepts bounded text. Required fields are enforced by ChatGPT OAuth even though Home Assistant treats the script editor's required flag primarily as UI metadata.
+
+The model cannot choose a different script, supply undeclared fields, or bypass the initiating user's script permission. The integration waits for the selected script to finish and returns its bounded, JSON-safe response to the conversation. If the script has no response, the tool still reports confirmed completion. Selected scripts remain available when general Home Assistant control is disabled because choosing each script is a separate, narrower permission grant.
+
+For best results, give the script a clear alias and description and configure selectors for every input. Avoid selecting scripts that open doors, disarm alarms, change locks, or perform similarly sensitive actions without their own explicit safety checks.
+
+### Restricted Jinja system prompts
+
+System prompts support a restricted Jinja environment rendered separately for every Assist request. Available variables are:
+
+- `user_name`, when **Use the current user's display name** is enabled
+- `area_name` and `room_name`, when room context is enabled
+- `satellite_name` and `device_name`, when satellite context is enabled
+- `room_entities`, when room-entity context is enabled
+- `local_time` and `now()` in Home Assistant's configured time zone
+- `states()`, `is_state()`, and `state_attr()` for only the entities chosen under **Entities the system prompt may read**
+
+Example:
+
+```jinja
+You are Jeeves, the voice assistant in {{ area_name }}.
+The current user is {{ user_name }}.
+The local time is {{ now().strftime('%-I:%M %p') }}.
+Quiet mode is {{ states('input_boolean.quiet_mode') }}.
+Keep spoken answers under three sentences.
+```
+
+An unselected, missing, or unreadable entity returns `unknown` from `states()`, `false` from `is_state()`, and `None` from `state_attr()`. The template does not receive the unrestricted Home Assistant state object, config entries, secrets, environment variables, service calls, the configured home address, or coordinates. User and room variables remain empty unless their existing privacy controls are enabled.
+
+Prompt source and rendered output are size-limited. Entity values are bounded and template syntax contained in state data is neutralized before Home Assistant builds the final prompt, preventing a state value from causing a second template evaluation. A rendering error falls back to the default system prompt instead of crashing Assist.
 
 ### AI Task, cameras, and generated images
 
@@ -489,6 +527,8 @@ Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queri
 - Do not expose `.storage`, callback URLs, debug logs containing credentials, or unredacted request captures.
 - Only expose the Home Assistant entities that the Assist agent genuinely needs.
 - AI Task camera tools can access only exposed camera/image entities, use one on-demand still per analysis call, and honor the initiating user's entity permissions.
+- Selected-script tools can invoke only scripts explicitly chosen for that assistant, reject undeclared fields, honor the initiating user's control permission, and exclude script IDs and arguments from diagnostics.
+- Restricted prompt templates can read only explicitly selected entities that the initiating user may read; prompts and selected entity IDs remain excluded from diagnostics.
 - Local file access is restricted to Home Assistant's allowed paths.
 - Remote image downloads are limited to HTTP/HTTPS, bounded redirects, an image content type, and a 20 MB response limit.
 - Generated images and temporary signed media URLs are managed by Home Assistant.
@@ -526,6 +566,19 @@ Open **Settings → Devices & services → Entities**, filter by **ChatGPT OAuth
 - Expose the camera or image entity to Assist and confirm the initiating Home Assistant user can read it.
 - Confirm the ChatGPT OAuth AI Task entity is enabled and that the user can control it.
 - For generated images, confirm Home Assistant's media directory is available and writable.
+
+### A selected script does not appear as a tool
+
+- Open the relevant assistant profile's **Reconfigure** screen and add it under **Scripts this assistant may run**.
+- Confirm the script is enabled, loaded, and runnable by the Home Assistant user starting the conversation.
+- Add selectors and descriptions to the script's fields so the model receives clear, typed inputs.
+- Restart Home Assistant after updating the integration itself; ordinary script edits do not require an integration restart.
+
+### A system-prompt template shows `unknown`
+
+- Add every entity referenced by `states()`, `is_state()`, or `state_attr()` under **Entities the system prompt may read**.
+- Confirm the initiating user can read that entity.
+- Enable the corresponding user or room privacy setting before using `user_name`, `area_name`, `satellite_name`, or `room_entities`.
 
 ### Authentication failed
 

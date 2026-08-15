@@ -28,11 +28,13 @@ from .memory import (
     combine_memory_instructions,
 )
 from .profiles import AssistantProfileSettings, resolve_assistant_profile
+from .prompt_template import async_render_system_prompt
 from .request_context import (
     ResolvedRequestContext,
     async_resolve_request_context,
     combine_request_context,
 )
+from .script_tools import create_selected_scripts_api
 
 LLM_HASS_API = "assist"
 TOOL_SAFETY_INSTRUCTIONS = (
@@ -79,6 +81,7 @@ class ChatGPTOAuthConversationEntity(
         self._attr_supported_features = (
             conversation.ConversationEntityFeature.CONTROL
             if settings.enable_home_assistant_control
+            or settings.selected_script_entities
             else conversation.ConversationEntityFeature(0)
         )
         # Preserve the original default unique ID and existing entity ID. New
@@ -117,6 +120,8 @@ class ChatGPTOAuthConversationEntity(
             "home_assistant_control": settings.enable_home_assistant_control,
             "history_tools": settings.enable_history_tools,
             "ai_task_camera_tools": settings.enable_ai_media_tools,
+            "selected_script_tools": len(settings.selected_script_entities),
+            "prompt_template_selected_entities": len(settings.prompt_template_entities),
             "user_context": settings.include_user_context,
             "satellite_room_context": settings.include_satellite_room_context,
             "room_entities": settings.include_room_entities,
@@ -159,11 +164,26 @@ class ChatGPTOAuthConversationEntity(
                 user_input,
                 settings,
             )
+            rendered_prompt = await async_render_system_prompt(
+                self.hass,
+                source=settings.prompt,
+                request_context=request_context,
+                context=user_input.context,
+                selected_entity_ids=settings.prompt_template_entities,
+            )
+            llm_api_selection = _llm_api_selection(settings)
+            if settings.selected_script_entities:
+                llm_api_selection = create_selected_scripts_api(
+                    self.hass,
+                    profile_id=settings.profile_id,
+                    script_entity_ids=settings.selected_script_entities,
+                    base_api_ids=llm_api_selection,
+                )
             try:
                 await chat_log.async_provide_llm_data(
                     user_input.as_llm_context(DOMAIN),
-                    _llm_api_selection(settings),
-                    settings.prompt,
+                    llm_api_selection,
+                    rendered_prompt,
                     user_input.extra_system_prompt,
                 )
             except conversation.ConverseError as err:
@@ -171,7 +191,7 @@ class ChatGPTOAuthConversationEntity(
                 conversation_result = err.as_conversation_result()
                 return conversation_result
 
-            instructions = _chat_log_instructions(chat_log) or settings.prompt
+            instructions = _chat_log_instructions(chat_log) or rendered_prompt
             prepared = await self._memory_manager.async_prepare(
                 chat_log=chat_log,
                 client=client,
@@ -183,7 +203,7 @@ class ChatGPTOAuthConversationEntity(
             )
             instructions = combine_memory_instructions(instructions, prepared)
             instructions = combine_request_context(instructions, request_context)
-            if chat_log.llm_api:
+            if chat_log.llm_api and chat_log.llm_api.tools:
                 instructions = f"{instructions.rstrip()}\n\n{TOOL_SAFETY_INSTRUCTIONS}"
                 result = await client.async_create_tool_response(
                     model=settings.model,

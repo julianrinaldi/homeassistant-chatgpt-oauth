@@ -2,6 +2,30 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.7.0] - 2026-08-15
+
+### Added
+
+- A per-profile **Scripts this assistant may run** selector that exposes only explicitly approved Home Assistant scripts as named conversation tools.
+- Strongly typed script parameters derived from Home Assistant field selectors, including numeric bounds and select options, with independent runtime validation of required and undeclared fields.
+- Blocking selected-script execution with bounded JSON-safe response data returned to the conversation model.
+- Restricted Jinja system prompts rendered per Assist request with `user_name`, room, satellite, device, local-time, and `now()` variables.
+- Per-profile **Entities the system prompt may read** selection for allowlisted `states()`, `is_state()`, and `state_attr()` lookups.
+
+### Privacy and safety
+
+- Selected scripts remain unavailable until explicitly chosen and still require the initiating user's control permission.
+- The model cannot select an arbitrary script or add undeclared script arguments; selected scripts work independently of unrestricted Home Assistant control.
+- Prompt templates cannot enumerate Home Assistant states, read config entries, secrets, environment variables, services, addresses, or coordinates.
+- User and room template variables follow the existing disabled-by-default context settings, and selected entity states require the initiating user's read permission.
+- Template-looking text inside entity data is neutralized before Home Assistant's final prompt expansion, and rendering failures fall back safely instead of crashing Assist.
+- Prompts, selected entity IDs, script entity IDs, and tool arguments remain excluded from diagnostics and conversation-completed events.
+
+### Compatibility
+
+- Config entries migrate to version 13 with empty selected-script and prompt-entity lists, so upgrading grants no new access automatically.
+- Existing credentials, assistant entities, prompts, actions, automations, and AI Task behavior remain compatible; no reauthentication is required.
+
 ## [1.6.3] - 2026-08-15
 
 ### Fixed
@@ -267,3 +291,4 @@ All notable user-facing changes are documented in this file.
 [1.6.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.0...v1.6.1
 [1.6.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.1...v1.6.2
 [1.6.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.2...v1.6.3
+[1.7.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.3...v1.7.0

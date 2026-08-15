@@ -43,7 +43,9 @@ from .const import (
     CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
+    CONF_PROMPT_TEMPLATE_ENTITIES,
     CONF_REASONING_EFFORT,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -87,6 +89,7 @@ from .models import (
     validate_reasoning_effort,
 )
 from .profiles import profile_data_defaults, profile_data_from_input
+from .prompt_template import validate_prompt_template_source
 from .web_search import (
     WEB_SEARCH_AUTO,
     WEB_SEARCH_CONTEXT_HIGH,
@@ -195,6 +198,10 @@ def _profile_schema(
                 default=defaults[CONF_ENABLE_AI_MEDIA_TOOLS],
             ): bool,
             vol.Optional(
+                CONF_SELECTED_SCRIPT_ENTITIES,
+                default=defaults[CONF_SELECTED_SCRIPT_ENTITIES],
+            ): selector.EntitySelector({"domain": "script", "multiple": True}),
+            vol.Optional(
                 CONF_INCLUDE_USER_CONTEXT,
                 default=defaults[CONF_INCLUDE_USER_CONTEXT],
             ): bool,
@@ -281,6 +288,10 @@ def _profile_schema(
                 default=defaults[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION],
             ): bool,
             vol.Optional(
+                CONF_PROMPT_TEMPLATE_ENTITIES,
+                default=defaults[CONF_PROMPT_TEMPLATE_ENTITIES],
+            ): selector.EntitySelector({"multiple": True}),
+            vol.Optional(
                 CONF_PROMPT,
                 default=defaults[CONF_PROMPT],
             ): _prompt_selector(),
@@ -299,6 +310,7 @@ def _parse_profile_form(
     normalized_input = dict(user_input)
     normalized_input[CONF_MODEL] = model
     data = profile_data_from_input(normalized_input, defaults=defaults)
+    data[CONF_PROMPT] = validate_prompt_template_source(data[CONF_PROMPT])
     name = str(user_input.get("name") or fallback_name).strip() or fallback_name
     return name, data
 
@@ -306,7 +318,7 @@ def _parse_profile_form(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 12
+    VERSION = 13
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]

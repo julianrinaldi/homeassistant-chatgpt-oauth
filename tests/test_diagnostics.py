@@ -73,6 +73,18 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
         "requires_user_entity_permissions": True,
         "generated_image_bytes_in_diagnostics": False,
     }
+    assert profile["selected_script_tools"] == {
+        "enabled": False,
+        "selected_count": 0,
+        "script_entity_ids_in_diagnostics": False,
+        "requires_user_entity_permissions": True,
+    }
+    assert profile["restricted_prompt_template"] == {
+        "enabled": True,
+        "selected_entity_count": 0,
+        "prompt_source_in_diagnostics": False,
+        "unrestricted_state_access": False,
+    }
     assert profile["model"]["slug"] == "gpt-5.6-terra"
     assert profile["model"]["thinking_level"] == "high"
     assert profile["model"]["supports_web_search"] is True

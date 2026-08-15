@@ -129,7 +129,10 @@ async def async_resolve_request_context(
     if include_room:
         satellite_name = _satellite_name(hass, satellite_id, satellite_entry)
         if device_entry is not None:
-            device_name = _clean_label(device_entry.name_by_user or device_entry.name)
+            device_name = _first_clean_label(
+                getattr(device_entry, "name_by_user", None),
+                getattr(device_entry, "name", None),
+            )
         if area_id and (area_entry := area_registry.async_get_area(area_id)):
             area_name = _clean_label(area_entry.name)
         if settings.include_room_entities and area_id:
@@ -176,10 +179,10 @@ def _satellite_name(
             return name
     if satellite_entry is None:
         return None
-    return _clean_label(
-        satellite_entry.name
-        or satellite_entry.name_by_user
-        or satellite_entry.original_name
+    return _first_clean_label(
+        getattr(satellite_entry, "name", None),
+        getattr(satellite_entry, "name_by_user", None),
+        getattr(satellite_entry, "original_name", None),
     )
 
 
@@ -226,11 +229,11 @@ def _state_display_name(
     entry: er.RegistryEntry | None = None,
 ) -> str | None:
     """Return an explicit friendly label without exposing an entity ID."""
-    return _clean_label(
-        state.attributes.get(ATTR_FRIENDLY_NAME)
-        or (entry.name if entry is not None else None)
-        or (entry.name_by_user if entry is not None else None)
-        or (entry.original_name if entry is not None else None)
+    return _first_clean_label(
+        state.attributes.get(ATTR_FRIENDLY_NAME) if state is not None else None,
+        getattr(entry, "name", None) if entry is not None else None,
+        getattr(entry, "name_by_user", None) if entry is not None else None,
+        getattr(entry, "original_name", None) if entry is not None else None,
     )
 
 
@@ -240,6 +243,14 @@ def _clean_label(value: object, *, maximum: int = 120) -> str | None:
         return None
     cleaned = " ".join(value.split()).strip()
     return cleaned[:maximum] or None
+
+
+def _first_clean_label(*values: object) -> str | None:
+    """Return the first real string across registry-version name fields."""
+    for value in values:
+        if cleaned := _clean_label(value):
+            return cleaned
+    return None
 
 
 def _clean_state(value: object) -> str:

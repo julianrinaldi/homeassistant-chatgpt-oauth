@@ -23,7 +23,9 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_MEMORY_MODE,
     CONF_MODEL,
     CONF_PROMPT,
+    CONF_PROMPT_TEMPLATE_ENTITIES,
     CONF_REASONING_EFFORT,
+    CONF_SELECTED_SCRIPT_ENTITIES,
     CONF_WEB_SEARCH_CONTEXT_SIZE,
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
     CONF_WEB_SEARCH_LIVE_ACCESS,
@@ -65,6 +67,14 @@ async def test_english_profile_translations(hass) -> None:
         f"component.{DOMAIN}.config.step.reconfigure.data_description."
         "enable_ai_media_tools"
     ].startswith("Lets this assistant use ChatGPT OAuth AI Task")
+    assert (
+        config[f"component.{DOMAIN}.config.step.reconfigure.data.selected_script_tools"]
+        == "Scripts this assistant may run"
+    )
+    assert subentries[
+        f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure."
+        "data_description.prompt_template_entities"
+    ].startswith("Allows restricted states()")
     assert (
         subentries[
             f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure.data."
@@ -116,6 +126,14 @@ async def test_full_user_flow(hass) -> None:
             CONF_ENABLE_HASS_CONTROL: False,
             CONF_ENABLE_AI_MEDIA_TOOLS: True,
             CONF_ENABLE_HISTORY_TOOLS: True,
+            CONF_SELECTED_SCRIPT_ENTITIES: [
+                "script.movie_night",
+                "script.lock_up",
+            ],
+            CONF_PROMPT_TEMPLATE_ENTITIES: [
+                "input_boolean.quiet_mode",
+                "sensor.indoor_temperature",
+            ],
             CONF_INCLUDE_USER_CONTEXT: True,
             CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: True,
             CONF_INCLUDE_ROOM_ENTITIES: True,
@@ -176,6 +194,14 @@ async def test_full_user_flow(hass) -> None:
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
     assert result["data"][CONF_ENABLE_AI_MEDIA_TOOLS] is True
     assert result["data"][CONF_ENABLE_HISTORY_TOOLS] is True
+    assert result["data"][CONF_SELECTED_SCRIPT_ENTITIES] == [
+        "script.movie_night",
+        "script.lock_up",
+    ]
+    assert result["data"][CONF_PROMPT_TEMPLATE_ENTITIES] == [
+        "input_boolean.quiet_mode",
+        "sensor.indoor_temperature",
+    ]
     assert result["data"][CONF_INCLUDE_USER_CONTEXT] is True
     assert result["data"][CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is True
     assert result["data"][CONF_INCLUDE_ROOM_ENTITIES] is True
