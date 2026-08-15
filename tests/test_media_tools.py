@@ -50,6 +50,18 @@ def test_entity_aliases_support_registry_entries_without_name_by_user() -> None:
     )
 
 
+def test_entity_aliases_ignore_computed_name_markers() -> None:
+    """Computed-name sentinels are never sorted or exposed as model aliases."""
+    computed_name = object()
+    entry = SimpleNamespace(
+        aliases=["Kitchen view", computed_name, "  "],
+        name="Kitchen Camera",
+        original_name=computed_name,
+    )
+
+    assert _entity_aliases(entry) == ("Kitchen Camera", "Kitchen view")
+
+
 async def test_media_api_exposes_supported_tools_without_internal_ids(hass) -> None:
     """The model receives human labels and only tools backed by capabilities."""
     provider = _EntityChoice(

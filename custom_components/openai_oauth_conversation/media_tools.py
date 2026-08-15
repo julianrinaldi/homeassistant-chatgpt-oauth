@@ -516,14 +516,21 @@ def _entity_aliases(entry: er.RegistryEntry | None) -> tuple[str, ...]:
     if entry is None:
         return ()
     # RegistryEntry fields have changed names across Home Assistant releases.
-    # Access them defensively so preparing the LLM tools cannot break the entire
-    # Assist pipeline on a release that does not expose ``name_by_user``.
-    aliases = set(getattr(entry, "aliases", ()) or ())
+    # Some releases also include a ComputedNameType marker in ``aliases`` or
+    # ``original_name``. Only real display text is safe to send to the model.
+    raw_aliases = getattr(entry, "compat_aliases", None)
+    if raw_aliases is None:
+        raw_aliases = getattr(entry, "aliases", ())
+    aliases = {
+        value.strip()
+        for value in (raw_aliases or ())
+        if isinstance(value, str) and value.strip()
+    }
     for attribute in ("name_by_user", "name", "original_name"):
         value = getattr(entry, attribute, None)
-        if value:
-            aliases.add(value)
-    return tuple(sorted(aliases))
+        if isinstance(value, str) and value.strip():
+            aliases.add(value.strip())
+    return tuple(sorted(aliases, key=str.casefold))
 
 
 def _display_name(entity_id: str, candidate: str | None) -> str:
