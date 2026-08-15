@@ -2,6 +2,24 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.4.0] - 2026-08-15
+
+### Added
+
+- An opt-in **Share precise home location** setting for web search. It supplies Home Assistant's exact latitude, longitude, configured home name, country, and time zone as trusted request context.
+- A `web_search_use_home_assistant_precise_location` override for the `generate_content`, `analyze_image`, and dedicated `web_search` actions.
+
+### Changed
+
+- The existing country-and-time-zone option is now labeled **Share approximate location** so its privacy behavior is clear.
+- Location settings now explain that Home Assistant does not provide a separate street-address field and that exact coordinates can identify a home address.
+
+### Privacy and compatibility
+
+- Precise location sharing is disabled by default. Existing entries retain their current approximate-location behavior and migrate with precise sharing off.
+- Coordinates and the configured home name are never included in diagnostics or normal response metadata.
+- Existing OAuth credentials, assistant profiles, entities, actions, and automations remain compatible.
+
 ## [1.3.1] - 2026-08-15
 
 ### Changed
@@ -159,3 +177,4 @@ All notable user-facing changes are documented in this file.
 [1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1
 [1.3.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.1...v1.3.0
 [1.3.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.0...v1.3.1
+[1.4.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.1...v1.4.0

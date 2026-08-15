@@ -21,6 +21,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DOMAIN,
     LEGACY_OUTPUT_LIMIT_KEY,
     MIGRATED_MEMORY_MAX_CHARACTERS,
@@ -46,7 +47,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 9
+    assert entry.version == 10
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
@@ -62,6 +63,7 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     assert entry.data[CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False
+    assert entry.data[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION] is False
     assert LEGACY_OUTPUT_LIMIT_KEY not in entry.data
 
 
@@ -80,6 +82,7 @@ async def test_migration_resets_invalid_web_search_settings(hass) -> None:
             CONF_WEB_SEARCH_INCLUDE_SOURCES: "true",
             CONF_WEB_SEARCH_LIVE_ACCESS: "false",
             CONF_WEB_SEARCH_USE_HASS_LOCATION: 1,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: "true",
         },
     )
     entry.add_to_hass(hass)
@@ -90,3 +93,4 @@ async def test_migration_resets_invalid_web_search_settings(hass) -> None:
     assert entry.data[CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert entry.data[CONF_WEB_SEARCH_LIVE_ACCESS] is True
     assert entry.data[CONF_WEB_SEARCH_USE_HASS_LOCATION] is False
+    assert entry.data[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION] is False

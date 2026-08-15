@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.3.1"
+INTEGRATION_VERSION: Final = "1.4.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -30,6 +30,9 @@ CONF_WEB_SEARCH_CONTEXT_SIZE: Final = "web_search_context_size"
 CONF_WEB_SEARCH_INCLUDE_SOURCES: Final = "web_search_include_sources"
 CONF_WEB_SEARCH_LIVE_ACCESS: Final = "web_search_live_access"
 CONF_WEB_SEARCH_USE_HASS_LOCATION: Final = "web_search_use_home_assistant_location"
+CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: Final = (
+    "web_search_use_home_assistant_precise_location"
+)
 CONF_MEMORY_MODE: Final = "memory_mode"
 CONF_MEMORY_MAX_TURNS: Final = "memory_max_turns"
 CONF_MEMORY_MAX_CHARACTERS: Final = "memory_max_characters"
@@ -58,6 +61,7 @@ DEFAULT_WEB_SEARCH_CONTEXT_SIZE: Final = "medium"
 DEFAULT_WEB_SEARCH_INCLUDE_SOURCES: Final = False
 DEFAULT_WEB_SEARCH_LIVE_ACCESS: Final = True
 DEFAULT_WEB_SEARCH_USE_HASS_LOCATION: Final = False
+DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: Final = False
 DEFAULT_MEMORY_MODE: Final = MEMORY_MODE_RECENT
 DEFAULT_MEMORY_MAX_TURNS: Final = 12
 DEFAULT_MEMORY_MAX_CHARACTERS: Final = 16_000

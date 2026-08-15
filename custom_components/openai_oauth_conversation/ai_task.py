@@ -83,6 +83,10 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
             "web_search_live_access": client.web_search_options.live_access,
             "web_search_uses_home_assistant_location": (
                 client.web_search_options.use_home_assistant_location
+                or client.web_search_options.use_home_assistant_precise_location
+            ),
+            "web_search_uses_precise_home_assistant_location": (
+                client.web_search_options.use_home_assistant_precise_location
             ),
         }
 

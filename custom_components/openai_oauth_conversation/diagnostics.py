@@ -80,8 +80,20 @@ def _profile_diagnostics(
             "live_access": settings.web_search.live_access,
             "uses_home_assistant_location": (
                 settings.web_search.use_home_assistant_location
+                or settings.web_search.use_home_assistant_precise_location
             ),
-            "location_detail": "country_and_timezone_only",
+            "uses_precise_home_assistant_location": (
+                settings.web_search.use_home_assistant_precise_location
+            ),
+            "location_detail": (
+                "coordinates_location_name_country_and_timezone"
+                if settings.web_search.use_home_assistant_precise_location
+                else (
+                    "country_and_timezone_only"
+                    if settings.web_search.use_home_assistant_location
+                    else "disabled"
+                )
+            ),
         },
     }
 
@@ -128,6 +140,7 @@ async def async_get_config_entry_diagnostics(
             "additional_assistant_profiles": True,
             "read_only_history_tools": True,
             "conversation_memory_policies": True,
+            "precise_web_search_location": True,
         },
         "assistant_profiles": profiles,
     }

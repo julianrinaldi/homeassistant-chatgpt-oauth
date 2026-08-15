@@ -43,6 +43,7 @@ from .const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DEFAULT_MEMORY_MAX_CHARACTERS,
     DEFAULT_MEMORY_MAX_TURNS,
     DEFAULT_MODEL,
@@ -227,6 +228,10 @@ def _profile_schema(
                 default=defaults[CONF_WEB_SEARCH_USE_HASS_LOCATION],
             ): bool,
             vol.Optional(
+                CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+                default=defaults[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION],
+            ): bool,
+            vol.Optional(
                 CONF_PROMPT,
                 default=defaults[CONF_PROMPT],
             ): _prompt_selector(),
@@ -252,7 +257,7 @@ def _parse_profile_form(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 9
+    VERSION = 10
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]

@@ -9,6 +9,7 @@ import pytest
 from custom_components.openai_oauth_conversation.client import ChatGPTOAuthClient
 from custom_components.openai_oauth_conversation.const import (
     CONF_WEB_SEARCH_INCLUDE_SOURCES,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
 )
 from custom_components.openai_oauth_conversation.exceptions import (
     RequestValidationError,
@@ -21,6 +22,7 @@ from custom_components.openai_oauth_conversation.web_search import (
     normalize_allowed_domains,
     normalize_web_search_context_size,
     normalize_web_search_mode,
+    precise_home_assistant_location,
     web_search_instructions,
 )
 
@@ -88,7 +90,7 @@ def test_web_search_normalization_and_domain_validation() -> None:
         normalize_allowed_domains(["*.example.com"])
 
 
-def test_location_never_exposes_coordinates() -> None:
+def test_approximate_location_never_exposes_coordinates() -> None:
     """Only country and time zone leave Home Assistant as location hints."""
     hass = SimpleNamespace(
         config=SimpleNamespace(
@@ -104,6 +106,70 @@ def test_location_never_exposes_coordinates() -> None:
         "country": "US",
         "timezone": "America/New_York",
     }
+
+
+def test_precise_location_is_validated_and_added_to_instructions() -> None:
+    """Explicit precise sharing adds trusted coordinates as request context."""
+    hass = SimpleNamespace(
+        config=SimpleNamespace(
+            country="us",
+            time_zone="America/New_York",
+            latitude=40.7128,
+            longitude=-74.006,
+            location_name="  My\nHome  ",
+        )
+    )
+    assert precise_home_assistant_location(hass) == {
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "location_name": "My Home",
+        "country": "US",
+        "timezone": "America/New_York",
+    }
+
+    options = WebSearchOptions(
+        mode="auto",
+        use_home_assistant_precise_location=True,
+    )
+    instructions = web_search_instructions(options, hass)
+    assert '"latitude": 40.7128' in instructions
+    assert '"longitude": -74.006' in instructions
+    assert '"location_name": "My Home"' in instructions
+    assert "Do not repeat the precise coordinates" in instructions
+    assert build_web_search_tool(options, hass)["user_location"] == {
+        "type": "approximate",
+        "country": "US",
+        "timezone": "America/New_York",
+    }
+
+
+@pytest.mark.parametrize(
+    ("latitude", "longitude"),
+    [
+        (91, 0),
+        (0, 181),
+        (float("nan"), 0),
+        (True, 0),
+        (None, None),
+    ],
+)
+def test_invalid_precise_location_is_not_shared(latitude, longitude) -> None:
+    """Missing or unsafe coordinates never enter request instructions."""
+    hass = SimpleNamespace(
+        config=SimpleNamespace(
+            country=None,
+            time_zone=None,
+            latitude=latitude,
+            longitude=longitude,
+            location_name="Home",
+        )
+    )
+    options = WebSearchOptions(
+        mode="auto",
+        use_home_assistant_precise_location=True,
+    )
+    assert precise_home_assistant_location(hass) is None
+    assert "precise home-location sharing" not in web_search_instructions(options, hass)
 
 
 def test_voice_friendly_search_instructions_do_not_request_spoken_sources() -> None:
@@ -123,11 +189,25 @@ def test_voice_friendly_search_instructions_do_not_request_spoken_sources() -> N
 def test_source_display_resolves_from_config_and_per_call_override() -> None:
     """The account default can be overridden for one integration action."""
     client = object.__new__(ChatGPTOAuthClient)
-    client.entry = SimpleNamespace(data={CONF_WEB_SEARCH_INCLUDE_SOURCES: True})
+    client.entry = SimpleNamespace(
+        data={
+            CONF_WEB_SEARCH_INCLUDE_SOURCES: True,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: True,
+        }
+    )
 
     assert client.resolve_web_search_options().include_sources is True
     assert (
+        client.resolve_web_search_options().use_home_assistant_precise_location is True
+    )
+    assert (
         client.resolve_web_search_options(include_sources=False).include_sources
+        is False
+    )
+    assert (
+        client.resolve_web_search_options(
+            use_home_assistant_precise_location=False
+        ).use_home_assistant_precise_location
         is False
     )
 

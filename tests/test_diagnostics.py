@@ -20,6 +20,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DOMAIN,
 )
 from custom_components.openai_oauth_conversation.diagnostics import (
@@ -50,6 +51,7 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
             CONF_WEB_SEARCH_INCLUDE_SOURCES: False,
             CONF_WEB_SEARCH_LIVE_ACCESS: False,
             CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: True,
         },
     )
     entry.add_to_hass(hass)
@@ -71,5 +73,6 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
         "includes_sources_in_response_text": False,
         "live_access": False,
         "uses_home_assistant_location": True,
-        "location_detail": "country_and_timezone_only",
+        "uses_precise_home_assistant_location": True,
+        "location_detail": "coordinates_location_name_country_and_timezone",
     }

@@ -127,7 +127,10 @@ Configure the default behavior under **Settings → Devices & services → ChatG
 | **Include sources in response text** | Adds clickable citation markers and a `Sources` section. This is disabled by default so voice assistants speak a natural answer. |
 | **Live access enabled** | Search may fetch current external pages. |
 | **Live access disabled** | Search is limited to OpenAI's cached or indexed content when supported. |
-| **Use Home Assistant location** | Sends only Home Assistant's country and time zone as an approximate hint. Coordinates and the configured home name are not sent. |
+| **Share approximate location** | Sends Home Assistant's country and time zone as an approximate search hint. Coordinates and the configured home name are not sent. |
+| **Share precise home location** | Also sends Home Assistant's exact latitude, longitude, and configured home name as trusted request context. Country and time zone are included automatically. This is disabled by default. |
+
+OpenAI's structured web-search location field supports approximate city, region, country, and time zone values, but not coordinates. When precise sharing is enabled, this integration adds Home Assistant's coordinates and configured home name to the model instructions so it can localize search queries. Home Assistant does not store a separate street-address field; exact coordinates may nevertheless identify the home address.
 
 When **Include sources in response text** is disabled, the spoken Assist response and normal `text` output contain only the natural answer. Citation annotations, unique sources, and reported search actions are still retained. Assist places the fully cited answer in a separate **Web search sources** card for interfaces that display cards, while the dedicated integration actions expose a separate `cited_text` value plus structured citation metadata.
 
@@ -163,7 +166,7 @@ For free-text tasks, source formatting follows the integration setting. With the
 
 ### Dedicated web-search action
 
-`openai_oauth_conversation.web_search` always requires a search. It supports per-call model and thinking-level overrides, context size, live/cache behavior, approximate location, and an optional allowlist of up to 100 domains.
+`openai_oauth_conversation.web_search` always requires a search. It supports per-call model and thinking-level overrides, context size, live/cache behavior, approximate or precise Home Assistant location, and an optional allowlist of up to 100 domains.
 
 ```yaml
 - action: openai_oauth_conversation.web_search
@@ -177,6 +180,7 @@ For free-text tasks, source formatting follows the integration setting. With the
     web_search_context_size: high
     web_search_include_sources: false
     web_search_live_access: true
+    web_search_use_home_assistant_precise_location: true
     allowed_domains:
       - home-assistant.io
       - github.com
@@ -407,7 +411,7 @@ Open **Settings → Devices & services → ChatGPT OAuth** and use:
 Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queries used in a request are transmitted to the hosted ChatGPT service. When live web access is enabled, the search service may retrieve external pages. Review the service's terms and privacy controls before sending sensitive content.
 
 - Web content is untrusted and may contain prompt-injection attempts. Treat searched instructions as advisory and verify important results.
-- The optional Home Assistant location hint includes only country and time zone; it does not include latitude, longitude, home name, or street address.
+- Approximate location sharing sends only Home Assistant's country and time zone. Precise location sharing is a separate, disabled-by-default option that sends exact latitude, longitude, and the configured home name. Home Assistant does not expose a separate street-address field, but exact coordinates can identify the home address.
 - OAuth access tokens and refresh tokens are stored in Home Assistant's config-entry storage.
 - Do not expose `.storage`, callback URLs, debug logs containing credentials, or unredacted request captures.
 - Only expose the Home Assistant entities that the Assist agent genuinely needs.

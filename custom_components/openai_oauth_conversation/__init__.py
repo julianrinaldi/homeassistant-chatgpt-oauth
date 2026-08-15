@@ -38,6 +38,7 @@ from .const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
     DEFAULT_MEMORY_MAX_CHARACTERS,
@@ -50,6 +51,7 @@ from .const import (
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+    DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DOMAIN,
     INTEGRATION_NAME,
     INTEGRATION_VERSION,
@@ -202,6 +204,9 @@ def _resolve_call_web_search(
             use_home_assistant_location=call.data.get(
                 CONF_WEB_SEARCH_USE_HASS_LOCATION
             ),
+            use_home_assistant_precise_location=call.data.get(
+                CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION
+            ),
             allowed_domains=call.data.get("allowed_domains"),
         )
     except ValueError as err:
@@ -249,6 +254,7 @@ def _shared_text_fields() -> dict[vol.Marker, Any]:
         vol.Optional(CONF_WEB_SEARCH_INCLUDE_SOURCES): cv.boolean,
         vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
         vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
+        vol.Optional(CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION): cv.boolean,
     }
 
 
@@ -426,6 +432,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Optional(CONF_WEB_SEARCH_INCLUDE_SOURCES): cv.boolean,
                 vol.Optional(CONF_WEB_SEARCH_LIVE_ACCESS): cv.boolean,
                 vol.Optional(CONF_WEB_SEARCH_USE_HASS_LOCATION): cv.boolean,
+                vol.Optional(CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION): cv.boolean,
                 vol.Optional("allowed_domains", default=[]): vol.All(
                     cv.ensure_list,
                     [cv.string],
@@ -439,7 +446,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 9:
+    if entry.version > 10:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -508,6 +515,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_WEB_SEARCH_USE_HASS_LOCATION,
             DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
         ),
+        (
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+            DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+        ),
     ):
         value = data.get(key)
         data[key] = value if isinstance(value, bool) else default
@@ -564,8 +575,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 9 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=9)
+    if entry.version < 10 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=10)
     return True
 
 

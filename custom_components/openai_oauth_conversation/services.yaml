@@ -91,8 +91,14 @@ generate_content:
       selector:
         boolean:
     web_search_use_home_assistant_location:
-      name: Use Home Assistant location
-      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      name: Share approximate location
+      description: Share Home Assistant's country and time zone with OpenAI web search. Exact coordinates are not sent unless precise location sharing is also enabled.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_precise_location:
+      name: Share precise home location
+      description: Share Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Coordinates can identify your home. Home Assistant does not store a separate street-address field.
       required: false
       selector:
         boolean:
@@ -197,8 +203,14 @@ analyze_image:
       selector:
         boolean:
     web_search_use_home_assistant_location:
-      name: Use Home Assistant location
-      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      name: Share approximate location
+      description: Share Home Assistant's country and time zone with OpenAI web search. Exact coordinates are not sent unless precise location sharing is also enabled.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_precise_location:
+      name: Share precise home location
+      description: Share Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Coordinates can identify your home. Home Assistant does not store a separate street-address field.
       required: false
       selector:
         boolean:
@@ -312,8 +324,14 @@ web_search:
       selector:
         boolean:
     web_search_use_home_assistant_location:
-      name: Use Home Assistant location
-      description: Send only Home Assistant's country and time zone as an approximate search hint. Coordinates are never sent.
+      name: Share approximate location
+      description: Share Home Assistant's country and time zone with OpenAI web search. Exact coordinates are not sent unless precise location sharing is also enabled.
+      required: false
+      selector:
+        boolean:
+    web_search_use_home_assistant_precise_location:
+      name: Share precise home location
+      description: Share Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Coordinates can identify your home. Home Assistant does not store a separate street-address field.
       required: false
       selector:
         boolean:

@@ -17,7 +17,8 @@
           "web_search_context_size": "Search context size",
           "web_search_include_sources": "Show source links in the answer",
           "web_search_live_access": "Live internet access",
-          "web_search_use_home_assistant_location": "Use Home Assistant location",
+          "web_search_use_home_assistant_location": "Share approximate location",
+          "web_search_use_home_assistant_precise_location": "Share precise home location",
           "prompt": "System prompt"
         },
         "data_description": {
@@ -32,7 +33,8 @@
           "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
           "web_search_include_sources": "Adds clickable source links and a Sources section when web search is used. Leave this off for cleaner voice responses; source details remain available in the response card and action metadata.",
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
-          "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+          "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
+          "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
           "prompt": "Instructions used by this Assist conversation profile."
         }
       },
@@ -68,7 +70,8 @@
           "web_search_context_size": "Search context size",
           "web_search_include_sources": "Show source links in the answer",
           "web_search_live_access": "Live internet access",
-          "web_search_use_home_assistant_location": "Use Home Assistant location",
+          "web_search_use_home_assistant_location": "Share approximate location",
+          "web_search_use_home_assistant_precise_location": "Share precise home location",
           "prompt": "System prompt"
         },
         "data_description": {
@@ -83,7 +86,8 @@
           "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
           "web_search_include_sources": "Adds clickable source links and a Sources section when web search is used. Leave this off for cleaner voice responses; source details remain available in the response card and action metadata.",
           "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
-          "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+          "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
+          "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
           "prompt": "Instructions used by this Assist conversation profile."
         }
       },
@@ -137,7 +141,8 @@
             "web_search_context_size": "Search context size",
             "web_search_include_sources": "Show source links in the answer",
             "web_search_live_access": "Live internet access",
-            "web_search_use_home_assistant_location": "Use Home Assistant location",
+            "web_search_use_home_assistant_location": "Share approximate location",
+            "web_search_use_home_assistant_precise_location": "Share precise home location",
             "prompt": "System prompt"
           },
           "data_description": {
@@ -152,7 +157,8 @@
             "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
             "web_search_include_sources": "Adds clickable source links and a Sources section when web search is used. Leave this off for cleaner voice responses; source details remain available in the response card and action metadata.",
             "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
-            "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+            "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
+            "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
             "prompt": "Instructions used by this Assist conversation profile."
           }
         },
@@ -178,7 +184,8 @@
             "web_search_context_size": "Search context size",
             "web_search_include_sources": "Show source links in the answer",
             "web_search_live_access": "Live internet access",
-            "web_search_use_home_assistant_location": "Use Home Assistant location",
+            "web_search_use_home_assistant_location": "Share approximate location",
+            "web_search_use_home_assistant_precise_location": "Share precise home location",
             "prompt": "System prompt"
           },
           "data_description": {
@@ -193,7 +200,8 @@
             "web_search_context_size": "Low is best for simple lookups, Medium is balanced, and High provides more result context for detailed answers.",
             "web_search_include_sources": "Adds clickable source links and a Sources section when web search is used. Leave this off for cleaner voice responses; source details remain available in the response card and action metadata.",
             "web_search_live_access": "Allow OpenAI to fetch live pages. Disable this to use only cached or indexed search content when supported.",
-            "web_search_use_home_assistant_location": "Send Home Assistant's country and time zone as an approximate search hint. Latitude, longitude, street address, and zone coordinates are never sent.",
+            "web_search_use_home_assistant_location": "Shares Home Assistant's country and time zone with OpenAI web search. Exact coordinates and the configured home name are not sent unless precise location sharing is also enabled.",
+            "web_search_use_home_assistant_precise_location": "Shares Home Assistant's exact latitude, longitude, configured home name, country, and time zone with OpenAI when web search is used. Home Assistant does not provide a separate street-address field, but coordinates can identify your home. Disabled by default.",
             "prompt": "Instructions used by this Assist conversation profile."
           }
         },

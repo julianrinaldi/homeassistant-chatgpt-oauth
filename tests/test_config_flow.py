@@ -23,6 +23,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DOMAIN,
 )
 
@@ -61,6 +62,13 @@ async def test_english_profile_translations(hass) -> None:
         f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure."
         "data_description.web_search_include_sources"
     ].startswith("Adds clickable source links")
+    assert (
+        subentries[
+            f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure.data."
+            "web_search_use_home_assistant_precise_location"
+        ]
+        == "Share precise home location"
+    )
 
 
 async def test_full_user_flow(hass) -> None:
@@ -92,6 +100,7 @@ async def test_full_user_flow(hass) -> None:
             CONF_WEB_SEARCH_INCLUDE_SOURCES: False,
             CONF_WEB_SEARCH_LIVE_ACCESS: False,
             CONF_WEB_SEARCH_USE_HASS_LOCATION: True,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: True,
         },
     )
     assert result["step_id"] == "reasoning"
@@ -145,3 +154,4 @@ async def test_full_user_flow(hass) -> None:
     assert result["data"][CONF_WEB_SEARCH_INCLUDE_SOURCES] is False
     assert result["data"][CONF_WEB_SEARCH_LIVE_ACCESS] is False
     assert result["data"][CONF_WEB_SEARCH_USE_HASS_LOCATION] is True
+    assert result["data"][CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION] is True

@@ -22,6 +22,7 @@ from .const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
     DEFAULT_MEMORY_MAX_CHARACTERS,
@@ -34,6 +35,7 @@ from .const import (
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+    DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     MAX_MEMORY_MAX_CHARACTERS,
     MAX_MEMORY_MAX_TURNS,
     MEMORY_MODES,
@@ -175,6 +177,11 @@ def profile_data_defaults(
             CONF_WEB_SEARCH_USE_HASS_LOCATION,
             DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
         ),
+        CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: _bool_setting(
+            source,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+            DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+        ),
         CONF_MEMORY_MODE: normalize_memory_mode(
             source.get(CONF_MEMORY_MODE),
             default=DEFAULT_MEMORY_MODE,
@@ -216,6 +223,9 @@ def resolve_assistant_profile(
             include_sources=normalized[CONF_WEB_SEARCH_INCLUDE_SOURCES],
             live_access=normalized[CONF_WEB_SEARCH_LIVE_ACCESS],
             use_home_assistant_location=normalized[CONF_WEB_SEARCH_USE_HASS_LOCATION],
+            use_home_assistant_precise_location=normalized[
+                CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION
+            ],
         ),
         memory_mode=normalized[CONF_MEMORY_MODE],
         memory_max_turns=normalized[CONF_MEMORY_MAX_TURNS],
@@ -289,6 +299,11 @@ def profile_data_from_input(
             merged,
             CONF_WEB_SEARCH_USE_HASS_LOCATION,
             base[CONF_WEB_SEARCH_USE_HASS_LOCATION],
+        ),
+        CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION: _bool_setting(
+            merged,
+            CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+            base[CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION],
         ),
         CONF_MEMORY_MODE: normalize_memory_mode(
             user_input.get(CONF_MEMORY_MODE),

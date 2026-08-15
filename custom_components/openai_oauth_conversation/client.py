@@ -29,6 +29,7 @@ from .const import (
     CONF_WEB_SEARCH_LIVE_ACCESS,
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
+    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     DEFAULT_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_WEB_SEARCH_CONTEXT_SIZE,
@@ -36,6 +37,7 @@ from .const import (
     DEFAULT_WEB_SEARCH_LIVE_ACCESS,
     DEFAULT_WEB_SEARCH_MODE,
     DEFAULT_WEB_SEARCH_USE_HASS_LOCATION,
+    DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
     IMAGE_REQUEST_TIMEOUT,
     LEGACY_OUTPUT_LIMIT_KEY,
     LOGGER,
@@ -375,6 +377,7 @@ class ChatGPTOAuthClient:
         include_sources: object | None = None,
         live_access: object | None = None,
         use_home_assistant_location: object | None = None,
+        use_home_assistant_precise_location: object | None = None,
         allowed_domains: object | None = None,
     ) -> WebSearchOptions:
         """Resolve configured and per-request OpenAI web-search options."""
@@ -424,12 +427,23 @@ class ChatGPTOAuthClient:
             if use_home_assistant_location is None
             else bool(use_home_assistant_location)
         )
+        resolved_precise_location = (
+            bool(
+                self.entry.data.get(
+                    CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+                    DEFAULT_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+                )
+            )
+            if use_home_assistant_precise_location is None
+            else bool(use_home_assistant_precise_location)
+        )
         return WebSearchOptions(
             mode=resolved_mode,
             context_size=resolved_context_size,
             include_sources=resolved_include_sources,
             live_access=resolved_live_access,
             use_home_assistant_location=resolved_location,
+            use_home_assistant_precise_location=resolved_precise_location,
             allowed_domains=normalize_allowed_domains(allowed_domains),
         )
 
@@ -549,7 +563,7 @@ class ChatGPTOAuthClient:
             active_tools.append(build_web_search_tool(search_options, self.hass))
             active_instructions = combine_instructions(
                 instructions,
-                web_search_instructions(search_options),
+                web_search_instructions(search_options, self.hass),
             )
             include.append("web_search_call.action.sources")
             if search_options.required:
