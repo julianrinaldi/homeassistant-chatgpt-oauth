@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from homeassistant.components import conversation
 
 from custom_components.openai_oauth_conversation.const import (
+    AI_MEDIA_LLM_API_ID,
     CONF_ENABLE_HASS_CONTROL,
     EVENT_CONVERSATION_FINISHED,
 )
@@ -16,6 +17,7 @@ from custom_components.openai_oauth_conversation.conversation import (
     _chat_log_input_items,
     _chat_log_instructions,
     _conversation_finished_event_data,
+    _llm_api_selection,
 )
 from custom_components.openai_oauth_conversation.request_context import (
     ResolvedRequestContext,
@@ -67,6 +69,47 @@ def test_control_feature_follows_entry_setting() -> None:
     assert enabled.supported_features & conversation.ConversationEntityFeature.CONTROL
     assert not (
         disabled.supported_features & conversation.ConversationEntityFeature.CONTROL
+    )
+
+
+def test_ai_task_camera_tools_use_a_separate_privacy_setting() -> None:
+    """AI media delegation is independent of general entity control."""
+    assert _llm_api_selection(
+        SimpleNamespace(
+            enable_home_assistant_control=True,
+            enable_ai_media_tools=True,
+            enable_history_tools=False,
+        )
+    ) == ["assist", AI_MEDIA_LLM_API_ID]
+    assert (
+        _llm_api_selection(
+            SimpleNamespace(
+                enable_home_assistant_control=False,
+                enable_ai_media_tools=True,
+                enable_history_tools=False,
+            )
+        )
+        == AI_MEDIA_LLM_API_ID
+    )
+    assert (
+        _llm_api_selection(
+            SimpleNamespace(
+                enable_home_assistant_control=True,
+                enable_ai_media_tools=False,
+                enable_history_tools=False,
+            )
+        )
+        == "assist"
+    )
+    assert (
+        _llm_api_selection(
+            SimpleNamespace(
+                enable_home_assistant_control=False,
+                enable_ai_media_tools=False,
+                enable_history_tools=False,
+            )
+        )
+        is None
     )
 
 
@@ -140,6 +183,42 @@ def test_visible_sources_do_not_create_a_duplicate_card() -> None:
 
     assert response.speech == result.text
     assert response.card is None
+
+
+def test_generated_image_is_presented_in_an_assist_card() -> None:
+    """Generated image URLs remain visual instead of entering spoken metadata."""
+
+    class Response:
+        speech: str | None = None
+        card: tuple[str, str] | None = None
+
+        def async_set_speech(self, text: str) -> None:
+            self.speech = text
+
+        def async_set_card(self, title: str, content: str) -> None:
+            self.card = (title, content)
+
+    response = Response()
+    result = ChatGPTTextResponse(
+        text="I created the image.",
+        raw_text="I created the image.",
+        raw_events=[],
+        generated_images=[{"url": "/api/ai_task/generated.png?authSig=signed"}],
+    )
+
+    _apply_web_search_presentation(
+        SimpleNamespace(response=response),
+        result,
+        include_sources=False,
+    )
+
+    assert response.speech == "I created the image."
+    assert response.card is not None
+    assert response.card[0] == "Generated image"
+    assert (
+        "![Generated image](/api/ai_task/generated.png?authSig=signed)"
+        in (response.card[1])
+    )
 
 
 def test_conversation_finished_event_is_metadata_only() -> None:

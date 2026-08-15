@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.5.0"
+INTEGRATION_VERSION: Final = "1.6.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -15,6 +15,7 @@ ISSUE_TRACKER_URL: Final = f"{REPOSITORY_URL}/issues"
 
 SUBENTRY_TYPE_ASSISTANT: Final = "assistant"
 HISTORY_LLM_API_ID: Final = f"{DOMAIN}_history"
+AI_MEDIA_LLM_API_ID: Final = f"{DOMAIN}_ai_media"
 
 CONF_ACCESS_TOKEN: Final = "access_token"
 CONF_ACCOUNT_ID: Final = "account_id"
@@ -22,6 +23,7 @@ CONF_REFRESH_TOKEN: Final = "refresh_token"
 CONF_EXPIRES: Final = "expires"
 CONF_ENABLE_HASS_CONTROL: Final = "enable_home_assistant_control"
 CONF_ENABLE_HISTORY_TOOLS: Final = "enable_history_tools"
+CONF_ENABLE_AI_MEDIA_TOOLS: Final = "enable_ai_media_tools"
 CONF_INCLUDE_USER_CONTEXT: Final = "include_user_context"
 CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = "include_satellite_room_context"
 CONF_INCLUDE_ROOM_ENTITIES: Final = "include_room_entities"
@@ -56,6 +58,7 @@ MEMORY_MODES: Final = (
 DEFAULT_NAME: Final = INTEGRATION_NAME
 DEFAULT_ENABLE_HASS_CONTROL: Final = True
 DEFAULT_ENABLE_HISTORY_TOOLS: Final = False
+DEFAULT_ENABLE_AI_MEDIA_TOOLS: Final = False
 DEFAULT_INCLUDE_USER_CONTEXT: Final = False
 DEFAULT_INCLUDE_SATELLITE_ROOM_CONTEXT: Final = False
 DEFAULT_INCLUDE_ROOM_ENTITIES: Final = False

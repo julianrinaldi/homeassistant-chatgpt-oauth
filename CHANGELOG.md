@@ -2,6 +2,29 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.6.0] - 2026-08-15
+
+### Added
+
+- An opt-in **Let Assist analyze cameras and create images** setting for every Assist conversation profile.
+- A `RunAITask` conversation tool that delegates text, data, image-analysis, and transformation requests to this integration's AI Task entity without recursively exposing Home Assistant controls.
+- An `AnalyzeCamera` conversation tool that captures and analyzes one fresh snapshot from a camera exposed to Assist.
+- A `GenerateImage` conversation tool for new images and edits based on optional exposed camera or image references.
+- Assist response cards for generated images, including a local signed Home Assistant media link.
+
+### Privacy and safety
+
+- AI Task entities must belong to this integration, support the requested feature, and be controllable by the initiating Home Assistant user.
+- Camera and image sources must be explicitly exposed to Assist and readable by that user.
+- Camera analysis is on demand and limited to one still image per call; it does not expose a continuous stream.
+- The model receives human-readable provider and source labels instead of internal entity IDs.
+- Generated image bytes, camera contents, prompts, and media tool arguments are excluded from diagnostics and conversation-completed events.
+
+### Compatibility
+
+- Config entries migrate to version 12 with AI Task and camera tools disabled by default.
+- Existing OAuth credentials, assistant profiles, entities, actions, and automations remain compatible.
+
 ## [1.5.0] - 2026-08-15
 
 ### Added
@@ -200,5 +223,6 @@ All notable user-facing changes are documented in this file.
 [1.2.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.0...v1.2.1
 [1.3.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.2.1...v1.3.0
 [1.3.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.0...v1.3.1
-[1.5.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.1...v1.4.0
+[1.5.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.4.0...v1.5.0
+[1.6.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.5.0...v1.6.0

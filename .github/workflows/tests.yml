@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.13"
+          - python: "3.14"
             homeassistant: "2026.4.0"
             pytest_ha: "0.13.321"
           - python: "3.14"

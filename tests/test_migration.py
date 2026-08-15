@@ -7,6 +7,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.openai_oauth_conversation import async_migrate_entry
 from custom_components.openai_oauth_conversation.const import (
     CONF_ACCESS_TOKEN,
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_INCLUDE_ROOM_ENTITIES,
@@ -52,13 +53,14 @@ async def test_migration_preserves_entry_and_removes_obsolete_field(hass) -> Non
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 11
+    assert entry.version == 12
     assert entry.unique_id == "account-123"
     assert entry.data[CONF_ACCESS_TOKEN] == "access"
     assert entry.data[CONF_REFRESH_TOKEN] == "refresh"
     assert entry.data[CONF_MODEL] == "gpt-5.6-sol"
     assert entry.data[CONF_REASONING_EFFORT] == "low"
     assert entry.data[CONF_ENABLE_HASS_CONTROL] is True
+    assert entry.data[CONF_ENABLE_AI_MEDIA_TOOLS] is False
     assert entry.data[CONF_ENABLE_HISTORY_TOOLS] is False
     assert entry.data[CONF_INCLUDE_USER_CONTEXT] is False
     assert entry.data[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is False

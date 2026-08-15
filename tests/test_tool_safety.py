@@ -54,6 +54,35 @@ def test_repeated_failures_for_same_entity_are_stopped() -> None:
     )
 
 
+def test_repeated_camera_failures_are_treated_as_one_target() -> None:
+    """Different questions cannot hide repeated failures for one camera."""
+    tracker = ToolSafetyTracker(max_calls=10, max_time=60)
+    first = _call(
+        "AnalyzeCamera",
+        camera_name="Front Door Camera",
+        question="Who is there?",
+    )
+    second = _call(
+        "AnalyzeCamera",
+        camera_name="Front Door Camera",
+        question="What is happening?",
+    )
+
+    assert (
+        tracker.record(first, {"error": "SnapshotError"}, duration=1, failed=True)
+        is None
+    )
+    stop = tracker.record(
+        second,
+        {"error": "SnapshotError"},
+        duration=1,
+        failed=True,
+    )
+
+    assert stop is not None
+    assert stop.error_type == "repeated_entity_failure"
+
+
 def test_configured_call_and_time_limits_are_enforced() -> None:
     """Tool safety reports which configured budget was exhausted."""
     tracker = ToolSafetyTracker(max_calls=1, max_time=10)
@@ -89,3 +118,30 @@ def test_alternating_calls_with_unchanged_results_are_stopped() -> None:
     assert stop is not None
     assert stop.error_type == "alternating_tool_loop"
     assert "without returning new information" in stop.message
+
+
+def test_generated_image_metadata_is_retained_without_bytes() -> None:
+    """The outer Assist response can display an AI Task image safely."""
+    tracker = ToolSafetyTracker(max_calls=5, max_time=60)
+    tracker.record(
+        _call("GenerateImage", instructions="Draw a cat"),
+        {
+            "created": True,
+            "generated_image": {
+                "url": "/api/ai_task/cat.png?authSig=signed",
+                "media_source_id": "media-source://ai_task/cat.png",
+                "mime_type": "image/png",
+                "image_data": b"not-retained",
+            },
+        },
+        duration=1,
+        failed=False,
+    )
+
+    assert tracker.generated_images == [
+        {
+            "url": "/api/ai_task/cat.png?authSig=signed",
+            "media_source_id": "media-source://ai_task/cat.png",
+            "mime_type": "image/png",
+        }
+    ]

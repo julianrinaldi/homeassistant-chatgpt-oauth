@@ -20,6 +20,7 @@ Use a ChatGPT account in Home Assistant for **Assist**, structured AI Tasks, Ope
 ## Features
 
 - Home Assistant Assist conversation agent with optional Home Assistant tool control.
+- Opt-in Assist tools that delegate text and image work to the integration's AI Task entity, analyze exposed camera snapshots, and create or edit images.
 - Opt-in current-user, voice-satellite, device, room, and exposed room-entity context.
 - Configurable tool-call and tool-time limits with repeated-call and no-progress detection.
 - Privacy-safe `chatgpt_oauth.conversation_finished` events for automations and diagnostics.
@@ -90,15 +91,16 @@ The internal integration domain remains `openai_oauth_conversation` for backward
 3. Search for **ChatGPT OAuth**.
 4. Enter a friendly name and select a model.
 5. Choose whether the Assist agent may inspect and control entities exposed to Assist.
-6. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
-7. Set the maximum Home Assistant tool calls and combined tool time for each message.
-8. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
-9. Optionally customize the system prompt.
-10. Choose a thinking level supported by the selected model.
-11. Open the displayed ChatGPT sign-in link.
-12. Complete sign-in in the browser.
-13. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
-14. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
+6. Choose whether Assist may use this integration's AI Task entity and cameras or image entities exposed to Assist.
+7. Optionally enable the current user's display name, satellite and room labels, or exposed entities in the current room.
+8. Set the maximum Home Assistant tool calls and combined tool time for each message.
+9. Choose the default OpenAI web-search mode, search context size, whether sources should appear in response text, live-access behavior, and whether approximate Home Assistant location may be used.
+10. Optionally customize the system prompt.
+11. Choose a thinking level supported by the selected model.
+12. Open the displayed ChatGPT sign-in link.
+13. Complete sign-in in the browser.
+14. The browser will finish at a localhost callback page. It may display a connection error; that is expected because the callback is intended for the local Codex client.
+15. Copy the **entire callback URL** from the address bar and paste it into Home Assistant.
 
 The callback URL contains a short-lived authorization code. Treat it as sensitive and do not post it in issues or logs.
 
@@ -223,6 +225,22 @@ After setup, choose the new conversation agent in an Assist pipeline:
 When **Enable Home Assistant control** is turned on, the agent receives Home Assistant's Assist tool API and may inspect or control entities exposed to Assist. Turn the option off under **Settings → Devices & services → ChatGPT OAuth → Reconfigure** for conversation-only behavior.
 
 Only entities explicitly exposed to Assist are made available through Home Assistant's LLM tools. The model can still make mistakes; use normal Home Assistant permissions and avoid exposing safety-critical actions.
+
+### AI Task, cameras, and generated images
+
+Enable **Let Assist analyze cameras and create images** for an assistant profile under **Settings → Devices & services → ChatGPT OAuth → Reconfigure**. The conversation agent can then use this integration's own AI Task entity for all of its supported generation modes:
+
+- Generate, transform, summarize, or analyze text and data.
+- Analyze an image entity or one fresh, on-demand snapshot from a camera.
+- Create a new image or derive an edited image from exposed camera or image references.
+
+For example, you can ask “What's happening at the front door?”, “Create an image of a cozy reading room,” or “Turn the latest driveway camera image into a watercolor painting.” Generated images appear in an Assist card with a local Home Assistant link.
+
+Camera access is deliberately bounded. A camera or image entity must be explicitly exposed to Assist, and the Home Assistant user who started the conversation must have permission to read it. AI Task entities must belong to this integration, support the requested feature, and be controllable by that user. Camera analysis captures one still image only when requested; it does not start continuous monitoring or send a live video stream.
+
+These media tools send display names instead of internal entity IDs. Generated image bytes, camera contents, prompts, and tool arguments are not added to diagnostics or `chatgpt_oauth.conversation_finished` events. The setting is disabled by default and is independent of general Home Assistant entity control.
+
+Home Assistant stores generated images in its AI Task media folder and returns a temporary signed URL. Image generation therefore requires a working Home Assistant media directory.
 
 ### Current user, satellite, and room
 
@@ -459,7 +477,7 @@ The response includes `text`, `response_text`, `raw_text`, `cited_text`, `citati
 
 Open **Settings → Devices & services → ChatGPT OAuth** and use:
 
-- **Reconfigure** to change the entry name, model, Home Assistant control access, system prompt, thinking level, source-display behavior, or other web-search defaults.
+- **Reconfigure** to change the entry name, model, Home Assistant control access, AI Task and exposed-camera access, system prompt, thinking level, source-display behavior, or other web-search defaults.
 - **Reauthenticate** when Home Assistant reports that the OAuth session has expired or been revoked.
 - **Download diagnostics** when filing a bug report. Diagnostics exclude tokens, account identifiers, prompts, attachments, conversation text, search queries, source contents, and generated output.
 
@@ -472,6 +490,7 @@ Prompts, enabled Home Assistant tool context, images, PDFs, and web-search queri
 - OAuth access tokens and refresh tokens are stored in Home Assistant's config-entry storage.
 - Do not expose `.storage`, callback URLs, debug logs containing credentials, or unredacted request captures.
 - Only expose the Home Assistant entities that the Assist agent genuinely needs.
+- AI Task camera tools can access only exposed camera/image entities, use one on-demand still per analysis call, and honor the initiating user's entity permissions.
 - Local file access is restricted to Home Assistant's allowed paths.
 - Remote image downloads are limited to HTTP/HTTPS, bounded redirects, an image content type, and a 20 MB response limit.
 - Generated images and temporary signed media URLs are managed by Home Assistant.
@@ -502,6 +521,13 @@ Then perform a full Home Assistant restart and clear the browser cache.
 ### The AI Task entity is not listed
 
 Open **Settings → Devices & services → Entities**, filter by **ChatGPT OAuth**, and enable **Show disabled entities**. The entity supports both `ai_task.generate_data` and `ai_task.generate_image`.
+
+### Assist cannot analyze a camera or create an image
+
+- Enable **Let Assist analyze cameras and create images** under the relevant assistant profile's **Reconfigure** screen.
+- Expose the camera or image entity to Assist and confirm the initiating Home Assistant user can read it.
+- Confirm the ChatGPT OAuth AI Task entity is enabled and that the user can control it.
+- For generated images, confirm Home Assistant's media directory is available and writable.
 
 ### Authentication failed
 
@@ -544,6 +570,7 @@ Download diagnostics from the integration entry and attach them to a GitHub issu
 
 ## Upgrading
 
+- Upgrading from 1.5.0 to 1.6.0 preserves existing settings and adds AI Task/camera tools as a disabled-by-default privacy option.
 - Upgrading from 1.4.0 to 1.5.0 preserves existing settings, keeps all user and room context disabled, and adds five-call and 60-second tool-safety defaults.
 - Upgrading from 1.2.0 to 1.2.1 changes only repository ownership metadata and public release packaging; Home Assistant configuration and runtime behavior are unchanged.
 - Upgrading from 1.1.1 to 1.2.0 adds configurable source presentation. Existing entries default to voice-friendly text without appended sources; re-enable **Include sources in response text** to preserve the v1.1 behavior.

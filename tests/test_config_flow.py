@@ -10,6 +10,7 @@ from yarl import URL
 
 from custom_components.openai_oauth_conversation.auth import OAuthTokenData
 from custom_components.openai_oauth_conversation.const import (
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_INCLUDE_ROOM_ENTITIES,
@@ -56,6 +57,14 @@ async def test_english_profile_translations(hass) -> None:
         f"component.{DOMAIN}.config.step.reconfigure.data_description."
         "enable_history_tools"
     ].startswith("Allows this assistant to answer questions about past states")
+    assert (
+        config[f"component.{DOMAIN}.config.step.reconfigure.data.enable_ai_media_tools"]
+        == "Let Assist analyze cameras and create images"
+    )
+    assert config[
+        f"component.{DOMAIN}.config.step.reconfigure.data_description."
+        "enable_ai_media_tools"
+    ].startswith("Lets this assistant use ChatGPT OAuth AI Task")
     assert (
         subentries[
             f"component.{DOMAIN}.config_subentries.assistant.step.reconfigure.data."
@@ -105,6 +114,7 @@ async def test_full_user_flow(hass) -> None:
         {
             "name": "Primary account",
             CONF_ENABLE_HASS_CONTROL: False,
+            CONF_ENABLE_AI_MEDIA_TOOLS: True,
             CONF_ENABLE_HISTORY_TOOLS: True,
             CONF_INCLUDE_USER_CONTEXT: True,
             CONF_INCLUDE_SATELLITE_ROOM_CONTEXT: True,
@@ -164,6 +174,7 @@ async def test_full_user_flow(hass) -> None:
     assert result["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "Primary account"
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
+    assert result["data"][CONF_ENABLE_AI_MEDIA_TOOLS] is True
     assert result["data"][CONF_ENABLE_HISTORY_TOOLS] is True
     assert result["data"][CONF_INCLUDE_USER_CONTEXT] is True
     assert result["data"][CONF_INCLUDE_SATELLITE_ROOM_CONTEXT] is True

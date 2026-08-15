@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 
 from .const import (
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_INCLUDE_ROOM_ENTITIES,
@@ -28,6 +29,7 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+    DEFAULT_ENABLE_AI_MEDIA_TOOLS,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
     DEFAULT_INCLUDE_ROOM_ENTITIES,
@@ -76,6 +78,7 @@ class AssistantProfileSettings:
     prompt: str
     enable_home_assistant_control: bool
     enable_history_tools: bool
+    enable_ai_media_tools: bool
     include_user_context: bool
     include_satellite_room_context: bool
     include_room_entities: bool
@@ -221,6 +224,11 @@ def profile_data_defaults(
             CONF_ENABLE_HISTORY_TOOLS,
             DEFAULT_ENABLE_HISTORY_TOOLS,
         ),
+        CONF_ENABLE_AI_MEDIA_TOOLS: _bool_setting(
+            source,
+            CONF_ENABLE_AI_MEDIA_TOOLS,
+            DEFAULT_ENABLE_AI_MEDIA_TOOLS,
+        ),
         CONF_INCLUDE_USER_CONTEXT: _bool_setting(
             source,
             CONF_INCLUDE_USER_CONTEXT,
@@ -305,6 +313,7 @@ def resolve_assistant_profile(
         prompt=normalized[CONF_PROMPT],
         enable_home_assistant_control=normalized[CONF_ENABLE_HASS_CONTROL],
         enable_history_tools=normalized[CONF_ENABLE_HISTORY_TOOLS],
+        enable_ai_media_tools=normalized[CONF_ENABLE_AI_MEDIA_TOOLS],
         include_user_context=normalized[CONF_INCLUDE_USER_CONTEXT],
         include_satellite_room_context=normalized[CONF_INCLUDE_SATELLITE_ROOM_CONTEXT],
         include_room_entities=normalized[CONF_INCLUDE_ROOM_ENTITIES],
@@ -369,6 +378,11 @@ def profile_data_from_input(
             merged,
             CONF_ENABLE_HISTORY_TOOLS,
             base[CONF_ENABLE_HISTORY_TOOLS],
+        ),
+        CONF_ENABLE_AI_MEDIA_TOOLS: _bool_setting(
+            merged,
+            CONF_ENABLE_AI_MEDIA_TOOLS,
+            base[CONF_ENABLE_AI_MEDIA_TOOLS],
         ),
         CONF_INCLUDE_USER_CONTEXT: _bool_setting(
             merged,

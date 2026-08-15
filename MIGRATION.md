@@ -1,5 +1,29 @@
 # Migrating ChatGPT OAuth
 
+## From 1.5.0 to 1.6.0
+
+Version 1.6.0 lets the Assist conversation agent delegate generation and analysis to this integration's AI Task entity, inspect explicitly exposed camera snapshots, and create or edit images.
+
+### Preserved automatically
+
+- Existing config entries and OAuth credentials
+- Conversation and AI Task entity identities
+- Assistant profiles, models, prompts, thinking levels, memory, web-search, context, and tool-safety settings
+- Existing Home Assistant control and history-tool settings
+- Existing actions and automations
+
+No reauthentication is required. Entries migrate automatically to config-entry version 12.
+
+### New privacy setting
+
+Existing and new assistant profiles receive:
+
+```text
+Let Assist analyze cameras and create images: Disabled
+```
+
+Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** to enable it for the desired assistant profile. Then expose only the required camera or image entities to Assist. Camera analysis is limited to a fresh still captured on demand and honors the initiating Home Assistant user's entity permissions. Generated image bytes and camera contents are excluded from diagnostics and conversation-completed events.
+
 ## From 1.4.0 to 1.5.0
 
 Version 1.5.0 adds optional user, voice-satellite, room, and room-entity context; configurable Home Assistant tool limits; loop detection; and privacy-safe conversation completion events.

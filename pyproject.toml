@@ -1,16 +1,15 @@
 [project]
 name = "homeassistant-chatgpt-oauth"
-version = "1.5.0"
+version = "1.6.0"
 description = "Unofficial ChatGPT OAuth integration for Home Assistant Assist, AI Tasks, image generation, and web search"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [{ name = "Julian Rinaldi" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
 

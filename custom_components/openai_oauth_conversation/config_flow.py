@@ -30,6 +30,7 @@ from .auth import (
 )
 from .client import ChatGPTOAuthClient
 from .const import (
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_INCLUDE_ROOM_ENTITIES,
@@ -190,6 +191,10 @@ def _profile_schema(
                 default=defaults[CONF_ENABLE_HISTORY_TOOLS],
             ): bool,
             vol.Optional(
+                CONF_ENABLE_AI_MEDIA_TOOLS,
+                default=defaults[CONF_ENABLE_AI_MEDIA_TOOLS],
+            ): bool,
+            vol.Optional(
                 CONF_INCLUDE_USER_CONTEXT,
                 default=defaults[CONF_INCLUDE_USER_CONTEXT],
             ): bool,
@@ -301,7 +306,7 @@ def _parse_profile_form(
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
-    VERSION = 11
+    VERSION = 12
 
     _oauth_input: dict[str, Any]
     _reconfigure_input: dict[str, Any]

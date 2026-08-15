@@ -336,6 +336,7 @@ def _tool_safety_response(
         tool_names=tracker.tool_names,
         tool_call_count=tracker.call_count,
         tool_error_type=stop.error_type,
+        generated_images=tracker.generated_images,
     )
 
 
@@ -1185,6 +1186,7 @@ class ChatGPTOAuthClient:
                     searches=searches,
                     tool_names=tracker.tool_names,
                     tool_call_count=tracker.call_count,
+                    generated_images=tracker.generated_images,
                 )
             if turn.text and tracker.successful_call_count:
                 _validate_required_web_search(
@@ -1205,6 +1207,7 @@ class ChatGPTOAuthClient:
                     searches=searches,
                     tool_names=tracker.tool_names,
                     tool_call_count=tracker.call_count,
+                    generated_images=tracker.generated_images,
                 )
             stop = await self._async_append_tool_results(
                 input_items,

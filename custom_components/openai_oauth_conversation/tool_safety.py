@@ -38,6 +38,7 @@ class ToolSafetyTracker:
     tool_time: float = 0.0
     _tool_names: list[str] = field(default_factory=list)
     _records: list[_ToolRecord] = field(default_factory=list)
+    _generated_images: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def tool_names(self) -> list[str]:
@@ -48,6 +49,11 @@ class ToolSafetyTracker:
     def successful_call_count(self) -> int:
         """Return completed calls that did not report a failure."""
         return sum(not record.failed for record in self._records)
+
+    @property
+    def generated_images(self) -> list[dict[str, Any]]:
+        """Return safe generated-image metadata reported by AI Task tools."""
+        return [dict(image) for image in self._generated_images]
 
     @property
     def remaining_time(self) -> float:
@@ -116,6 +122,27 @@ class ToolSafetyTracker:
             failed=failed or _result_reports_failure(result),
         )
         self._records.append(record)
+        if isinstance(result, Mapping) and isinstance(
+            generated_image := result.get("generated_image"),
+            Mapping,
+        ):
+            url = generated_image.get("url")
+            if isinstance(url, str) and url:
+                self._generated_images.append(
+                    {
+                        key: value
+                        for key in (
+                            "url",
+                            "media_source_id",
+                            "mime_type",
+                            "width",
+                            "height",
+                            "model",
+                            "revised_prompt",
+                        )
+                        if (value := generated_image.get(key)) is not None
+                    }
+                )
 
         if (
             record.failed
@@ -176,10 +203,14 @@ def _call_target(call: llm.ToolInput) -> str | None:
                 collect(child, key)
             return
         if key in {
+            "ai_task_name",
+            "camera_name",
             "entity_id",
             "device_id",
             "area_id",
             "floor_id",
+            "image_names",
+            "reference_image_names",
             "target",
             "name",
         } or key.endswith("_entity"):

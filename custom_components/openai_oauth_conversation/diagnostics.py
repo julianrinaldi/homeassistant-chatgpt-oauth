@@ -68,6 +68,13 @@ def _profile_diagnostics(
         },
         "home_assistant_control_enabled": settings.enable_home_assistant_control,
         "history_tools_enabled": settings.enable_history_tools,
+        "ai_task_and_camera_tools": {
+            "enabled": settings.enable_ai_media_tools,
+            "camera_access": "on_demand_snapshot_only",
+            "requires_assist_exposure": True,
+            "requires_user_entity_permissions": True,
+            "generated_image_bytes_in_diagnostics": False,
+        },
         "request_context": {
             "user_display_name_enabled": settings.include_user_context,
             "satellite_and_room_labels_enabled": (
@@ -158,6 +165,9 @@ async def async_get_config_entry_diagnostics(
             "user_satellite_and_room_context": True,
             "bounded_tool_loops": True,
             "privacy_safe_conversation_finished_event": True,
+            "conversation_ai_task_tools": True,
+            "exposed_camera_snapshot_analysis": True,
+            "assist_image_generation": True,
         },
         "assistant_profiles": profiles,
     }

@@ -25,6 +25,7 @@ import voluptuous as vol
 
 from .client import ChatGPTOAuthClient
 from .const import (
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_INCLUDE_ROOM_ENTITIES,
@@ -44,6 +45,7 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+    DEFAULT_ENABLE_AI_MEDIA_TOOLS,
     DEFAULT_ENABLE_HASS_CONTROL,
     DEFAULT_ENABLE_HISTORY_TOOLS,
     DEFAULT_INCLUDE_ROOM_ENTITIES,
@@ -92,6 +94,7 @@ from .exceptions import (
     StructuredOutputError,
 )
 from .history_tools import create_history_api
+from .media_tools import create_ai_media_api
 from .models import (
     ALL_REASONING_EFFORTS,
     get_model_profile,
@@ -271,12 +274,17 @@ def _shared_text_fields() -> dict[vol.Marker, Any]:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register integration actions and the read-only history LLM API."""
+    """Register integration actions and the integration's LLM APIs."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     if "history_api_unregister" not in domain_data:
         domain_data["history_api_unregister"] = llm.async_register_api(
             hass,
             create_history_api(hass),
+        )
+    if "ai_media_api_unregister" not in domain_data:
+        domain_data["ai_media_api_unregister"] = llm.async_register_api(
+            hass,
+            create_ai_media_api(hass),
         )
 
     async def generate_content(call: ServiceCall) -> ServiceResponse:
@@ -458,7 +466,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate earlier entries without changing their stable domain or IDs."""
-    if entry.version > 11:
+    if entry.version > 12:
         LOGGER.error(
             "Cannot migrate config entry %s from future version %s",
             entry.entry_id,
@@ -494,6 +502,12 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         history_tools
         if isinstance(history_tools, bool)
         else DEFAULT_ENABLE_HISTORY_TOOLS
+    )
+    ai_media_tools = data.get(CONF_ENABLE_AI_MEDIA_TOOLS)
+    data[CONF_ENABLE_AI_MEDIA_TOOLS] = (
+        ai_media_tools
+        if isinstance(ai_media_tools, bool)
+        else DEFAULT_ENABLE_AI_MEDIA_TOOLS
     )
 
     for key, default in (
@@ -623,8 +637,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     data.pop(LEGACY_OUTPUT_LIMIT_KEY, None)
 
-    if entry.version < 11 or data != dict(entry.data):
-        hass.config_entries.async_update_entry(entry, data=data, version=11)
+    if entry.version < 12 or data != dict(entry.data):
+        hass.config_entries.async_update_entry(entry, data=data, version=12)
     return True
 
 

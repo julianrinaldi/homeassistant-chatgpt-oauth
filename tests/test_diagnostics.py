@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.openai_oauth_conversation.const import (
     CONF_ACCESS_TOKEN,
     CONF_ACCOUNT_ID,
+    CONF_ENABLE_AI_MEDIA_TOOLS,
     CONF_ENABLE_HASS_CONTROL,
     CONF_EXPIRES,
     CONF_MODEL,
@@ -44,6 +45,7 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
             **secrets,
             CONF_EXPIRES: 4_000_000_000_000,
             CONF_ENABLE_HASS_CONTROL: False,
+            CONF_ENABLE_AI_MEDIA_TOOLS: True,
             CONF_MODEL: "gpt-5.6-terra",
             CONF_REASONING_EFFORT: "high",
             CONF_WEB_SEARCH_MODE: "required",
@@ -64,6 +66,13 @@ async def test_diagnostics_exclude_sensitive_and_user_content(hass) -> None:
     profile = diagnostics["assistant_profiles"][0]
     assert profile["profile_type"] == "default"
     assert profile["home_assistant_control_enabled"] is False
+    assert profile["ai_task_and_camera_tools"] == {
+        "enabled": True,
+        "camera_access": "on_demand_snapshot_only",
+        "requires_assist_exposure": True,
+        "requires_user_entity_permissions": True,
+        "generated_image_bytes_in_diagnostics": False,
+    }
     assert profile["model"]["slug"] == "gpt-5.6-terra"
     assert profile["model"]["thinking_level"] == "high"
     assert profile["model"]["supports_web_search"] is True

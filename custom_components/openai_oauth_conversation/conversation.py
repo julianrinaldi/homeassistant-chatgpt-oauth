@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .client import ChatGPTOAuthClient
 from .const import (
+    AI_MEDIA_LLM_API_ID,
     DOMAIN,
     EVENT_CONVERSATION_FINISHED,
     HISTORY_LLM_API_ID,
@@ -115,6 +116,7 @@ class ChatGPTOAuthConversationEntity(
             "thinking_level": settings.reasoning_effort,
             "home_assistant_control": settings.enable_home_assistant_control,
             "history_tools": settings.enable_history_tools,
+            "ai_task_camera_tools": settings.enable_ai_media_tools,
             "user_context": settings.include_user_context,
             "satellite_room_context": settings.include_satellite_room_context,
             "room_entities": settings.include_room_entities,
@@ -258,6 +260,8 @@ def _llm_api_selection(
     api_ids: list[str] = []
     if settings.enable_home_assistant_control:
         api_ids.append(LLM_HASS_API)
+    if settings.enable_ai_media_tools:
+        api_ids.append(AI_MEDIA_LLM_API_ID)
     if settings.enable_history_tools:
         api_ids.append(HISTORY_LLM_API_ID)
     if not api_ids:
@@ -273,13 +277,36 @@ def _apply_web_search_presentation(
     *,
     include_sources: bool,
 ) -> None:
-    """Keep Assist speech natural while preserving clickable source details."""
+    """Keep speech natural while preserving sources and generated images."""
     conversation_result.response.async_set_speech(result.text)
-    if not include_sources and (result.citations or result.searches):
-        conversation_result.response.async_set_card(
-            "Web search sources",
-            result.cited_text,
+    generated_images = getattr(result, "generated_images", [])
+    card_parts: list[str] = []
+    for index, generated_image in enumerate(generated_images, start=1):
+        url = generated_image.get("url")
+        if not isinstance(url, str) or not url:
+            continue
+        label = "Generated image" if len(generated_images) == 1 else f"Image {index}"
+        card_parts.append(f"![{label}]({url})\n\n[Open {label.lower()}]({url})")
+
+    hidden_sources = not include_sources and (result.citations or result.searches)
+    if hidden_sources:
+        source_details = result.cited_text
+        if card_parts:
+            source_details = "### Web search details\n\n" + source_details
+        card_parts.append(source_details)
+    if not card_parts:
+        return
+
+    title = (
+        "Generated images and web sources"
+        if generated_images and hidden_sources
+        else (
+            "Generated images"
+            if len(generated_images) > 1
+            else ("Generated image" if generated_images else "Web search sources")
         )
+    )
+    conversation_result.response.async_set_card(title, "\n\n".join(card_parts))
 
 
 def _chat_log_instructions(chat_log: conversation.ChatLog) -> str:
