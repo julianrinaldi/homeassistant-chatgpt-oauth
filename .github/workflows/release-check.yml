@@ -119,7 +119,7 @@ jobs:
             echo "Generated or private files are present"
             exit 1
           fi
-          if grep -RIlE '(access_token|refresh_token)["'"'=: ]+[A-Za-z0-9._~+/-]{24,}' . \
+          if grep -RIlE "(access_token|refresh_token)[\"'=: ]+[A-Za-z0-9._~+/-]{24,}" . \
              --exclude-dir=.git --exclude='*.md' --exclude='*.py'; then
             echo "A possible credential was found"
             exit 1
