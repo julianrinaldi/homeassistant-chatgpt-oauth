@@ -515,8 +515,12 @@ async def _user_can(
 def _entity_aliases(entry: er.RegistryEntry | None) -> tuple[str, ...]:
     if entry is None:
         return ()
-    aliases = set(entry.aliases)
-    for value in (entry.name_by_user, entry.name, entry.original_name):
+    # RegistryEntry fields have changed names across Home Assistant releases.
+    # Access them defensively so preparing the LLM tools cannot break the entire
+    # Assist pipeline on a release that does not expose ``name_by_user``.
+    aliases = set(getattr(entry, "aliases", ()) or ())
+    for attribute in ("name_by_user", "name", "original_name"):
+        value = getattr(entry, attribute, None)
         if value:
             aliases.add(value)
     return tuple(sorted(aliases))

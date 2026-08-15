@@ -20,6 +20,7 @@ from custom_components.openai_oauth_conversation.media_tools import (
     GenerateImageTool,
     RunAITaskTool,
     _accessible_visual_sources,
+    _entity_aliases,
     _EntityChoice,
 )
 
@@ -31,6 +32,21 @@ def _context() -> llm.LLMContext:
         language="en",
         assistant="conversation",
         device_id=None,
+    )
+
+
+def test_entity_aliases_support_registry_entries_without_name_by_user() -> None:
+    """Older RegistryEntry objects cannot break Assist tool preparation."""
+    entry = SimpleNamespace(
+        aliases={"Cooking camera"},
+        name="Kitchen Camera",
+        original_name="Camera",
+    )
+
+    assert _entity_aliases(entry) == (
+        "Camera",
+        "Cooking camera",
+        "Kitchen Camera",
     )
 
 

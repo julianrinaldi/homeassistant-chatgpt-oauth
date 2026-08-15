@@ -2,6 +2,18 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.6.2] - 2026-08-15
+
+### Fixed
+
+- Enabling **Let Assist analyze cameras and create images** no longer crashes the Assist pipeline on Home Assistant releases whose entity registry does not provide the `name_by_user` field.
+- AI Task, camera-analysis, and image-generation tools now prepare human-readable entity aliases through a version-compatible registry lookup.
+
+### Compatibility
+
+- No configuration migration or reauthentication is required.
+- Camera and image access remains opt-in and continues to require explicit Assist exposure and user read permission.
+
 ## [1.6.1] - 2026-08-15
 
 ### Fixed
@@ -241,3 +253,4 @@ All notable user-facing changes are documented in this file.
 [1.5.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.4.0...v1.5.0
 [1.6.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.5.0...v1.6.0
 [1.6.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.0...v1.6.1
+[1.6.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.1...v1.6.2
