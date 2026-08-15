@@ -198,8 +198,6 @@ Common response values:
 
 ```jinja2
 {{ research.text }}
-{{ research.raw_text }}
-{{ research.cited_text }}
 {{ research.citations }}
 {{ research.sources }}
 {{ research.searches }}
@@ -210,7 +208,7 @@ Common response values:
 {{ research.live_access }}
 ```
 
-`research.text` follows the selected source-display setting. `research.raw_text` is the unformatted model answer, and `research.cited_text` always contains the clickable cited version. Each item in `research.citations` contains `url`, `title`, `start_index`, and `end_index`. Each item in `research.sources` contains `url` and `title`. `research.searches` records search, page-open, or find-in-page actions reported by the hosted tool.
+`research.text` is the primary answer and follows the selected source-display setting. To keep Home Assistant action responses readable, `raw_text` appears only when the unformatted model answer differs from `text`, and `cited_text` appears only when citation annotations produce a distinct clickable answer. Each item in `research.citations` contains `url`, `title`, `start_index`, and `end_index`. Each item in `research.sources` contains one unique `url` and `title`. `research.searches` records search, page-open, or find-in-page actions without duplicating the top-level source list.
 
 Allowed domains must be hostnames such as `home-assistant.io` or `developers.openai.com`; do not include a URL path, query, or fragment.
 
@@ -549,7 +547,7 @@ Required mode raises an error instead of returning an answer when the backend pr
 
 ### Sources are spoken by the voice assistant
 
-Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** and disable **Include sources in response text**. Assist will speak only the natural answer. Interfaces that support response cards can still display the fully cited answer, and integration actions continue returning `cited_text`, `citations`, `sources`, and `searches`.
+Open **Settings → Devices & services → ChatGPT OAuth → Reconfigure** and disable **Include sources in response text**. Assist will speak only the natural answer. Interfaces that support response cards can still display source details, and integration actions retain structured `citations`, `sources`, and `searches` metadata.
 
 ### Search controls are rejected
 

@@ -228,16 +228,39 @@ def _resolve_call_web_search(
         raise ServiceValidationError(str(err)) from err
 
 
-def _text_response_data(result: ChatGPTTextResponse) -> ServiceResponse:
-    """Return stable, serializable text and web-source metadata."""
-    return {
+def _text_response_data(
+    result: ChatGPTTextResponse,
+    *,
+    compact: bool = False,
+) -> ServiceResponse:
+    """Return serializable text and web-source metadata."""
+    if not compact:
+        return {
+            "text": result.text,
+            "raw_text": result.raw_text or result.text,
+            "cited_text": result.cited_text,
+            "citations": [citation.as_dict() for citation in result.citations],
+            "sources": [source.as_dict() for source in result.sources],
+            "searches": [search.as_dict() for search in result.searches],
+        }
+
+    response: ServiceResponse = {
         "text": result.text,
-        "raw_text": result.raw_text or result.text,
-        "cited_text": result.cited_text,
         "citations": [citation.as_dict() for citation in result.citations],
         "sources": [source.as_dict() for source in result.sources],
-        "searches": [search.as_dict() for search in result.searches],
+        "searches": [
+            {key: value for key, value in search.as_dict().items() if key != "sources"}
+            for search in result.searches
+        ],
     }
+    raw_text = result.raw_text or result.text
+    if raw_text.strip() != result.text.strip():
+        response["raw_text"] = raw_text
+
+    cited_text = result.cited_text
+    if result.citations and cited_text.strip() != result.text.strip():
+        response["cited_text"] = cited_text
+    return response
 
 
 def _raise_home_assistant_error(error: ChatGPTOAuthError) -> NoReturn:
@@ -381,7 +404,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
         except ChatGPTOAuthError as err:
             _raise_home_assistant_error(err)
-        response = _text_response_data(result)
+        response = _text_response_data(result, compact=True)
         response.update(
             {
                 "model": model,

@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.6.1] - 2026-08-15
+
+### Fixed
+
+- Web-search action responses no longer repeat an identical answer under `text`, `raw_text`, and `cited_text`.
+- In the dedicated web-search action, `raw_text` and `cited_text` are now included only when they provide a genuinely different answer variant.
+- Consulted source URLs remain in the web-search action's top-level `sources` list instead of being duplicated inside each item in the lower-level `searches` audit trail.
+
+### Compatibility
+
+- The primary `text`, structured `citations`, unique `sources`, and search-action metadata remain available.
+- The response shape of `generate_content` and `analyze_image` remains unchanged.
+- Config entries, OAuth credentials, entities, and settings require no migration or reauthentication.
+
 ## [1.6.0] - 2026-08-15
 
 ### Added
@@ -226,3 +240,4 @@ All notable user-facing changes are documented in this file.
 [1.4.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.3.1...v1.4.0
 [1.5.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.4.0...v1.5.0
 [1.6.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.5.0...v1.6.0
+[1.6.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.0...v1.6.1

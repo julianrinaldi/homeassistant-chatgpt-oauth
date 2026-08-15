@@ -241,7 +241,7 @@ analyze_image:
 
 web_search:
   name: Web search
-  description: Force OpenAI web search for a question and return clean text, a fully cited text variant, and structured citation and search metadata.
+  description: Force OpenAI web search for a question and return one primary answer with structured source and search metadata. Additional text variants are returned only when they are genuinely different.
   fields:
     config_entry:
       name: ChatGPT OAuth account
