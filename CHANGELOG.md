@@ -2,6 +2,21 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.8.2] - 2026-09-03
+
+### Fixed
+
+- Restored Assist tool calls on Home Assistant 2026.9 and newer by using the OpenAPI schema converter exported by the running Home Assistant Core instead of always forcing the older `voluptuous-openapi` converter.
+- Normalized unsupported-schema sentinels returned by Home Assistant and third-party LLM API serializers, preventing `_Unsupported` objects from leaking into ChatGPT request payloads and failing JSON serialization.
+- Preserved compatibility with Home Assistant releases that still expose the older `llm.convert` interface.
+- Removed the unnecessary direct `voluptuous-openapi` runtime requirement; Home Assistant supplies the converter matching its own schema implementation.
+
+### Compatibility
+
+- No configuration migration or reauthentication is required.
+- Existing OAuth credentials, assistant profiles, entities, actions, automations, AI Tasks, scheduled actions, local skills, and settings remain unchanged.
+- Restart Home Assistant Core after updating.
+
 ## [1.8.1] - 2026-09-03
 
 ### Fixed
@@ -367,3 +382,4 @@ All notable user-facing changes are documented in this file.
 [1.7.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.0...v1.7.1
 [1.8.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.1...v1.8.0
 [1.8.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.0...v1.8.1
+[1.8.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.1...v1.8.2

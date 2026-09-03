@@ -15,7 +15,6 @@ from homeassistant.helpers import llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.json import json_dumps
 import voluptuous as vol
-from voluptuous_openapi import convert
 
 from .auth import ConfigEntryLike, OAuthTokenManager, extract_account_id
 from .const import (
@@ -69,6 +68,7 @@ from .models import (
     reasoning_effort_for_request,
     validate_reasoning_effort,
 )
+from .openapi_compat import convert_tool_parameters
 from .responses import (
     ChatGPTDataResponse,
     ChatGPTImageResponse,
@@ -274,9 +274,10 @@ def _format_tool(
         "type": "function",
         "name": tool.name,
         "description": tool.description,
-        "parameters": convert(
+        "parameters": convert_tool_parameters(
             tool.parameters,
-            custom_serializer=custom_serializer,
+            custom_serializer,
+            tool_name=tool.name,
         ),
         "strict": False,
     }
