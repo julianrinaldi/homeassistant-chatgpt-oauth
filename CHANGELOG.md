@@ -2,6 +2,19 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.8.1] - 2026-09-03
+
+### Fixed
+
+- Declared `voluptuous-openapi==0.4.1` as a Home Assistant-managed runtime dependency, preventing startup from failing with `ModuleNotFoundError: No module named 'voluptuous_openapi'` on clean installations.
+- Added the dependency to the test environment so clean CI runners exercise the same import path as Home Assistant.
+
+### Compatibility
+
+- No configuration migration or reauthentication is required.
+- Existing OAuth credentials, assistant profiles, entities, actions, automations, scheduled actions, local skills, and settings remain unchanged.
+- Restart Home Assistant Core after updating so Home Assistant installs and loads the newly declared dependency.
+
 ## [1.8.0] - 2026-08-15
 
 ### Added
@@ -353,3 +366,4 @@ All notable user-facing changes are documented in this file.
 [1.7.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.6.3...v1.7.0
 [1.7.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.0...v1.7.1
 [1.8.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.1...v1.8.0
+[1.8.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.0...v1.8.1
