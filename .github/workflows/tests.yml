@@ -38,7 +38,8 @@ jobs:
             "pytest-asyncio>=0.25" \
             "pytest-cov>=6.0" \
             "pytest-homeassistant-custom-component==${{ matrix.pytest_ha }}" \
-            "ruff==0.16.0"
+            "ruff==0.16.0" \
+            "voluptuous-openapi==0.4.1"
       - name: Install imported Home Assistant component dependencies
         run: |
           python - <<'PY'
