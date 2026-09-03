@@ -1,0 +1,60 @@
+name: Update v1.8.1 changelog
+
+on:
+  push:
+    branches:
+      - release/v1.8.1-runtime-dependency
+    paths:
+      - ".github/workflows/update-v1.8.1-changelog.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v1.8.1-runtime-dependency
+          fetch-depth: 0
+
+      - name: Update changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("CHANGELOG.md")
+          text = path.read_text(encoding="utf-8")
+          if "## [1.8.1]" not in text:
+              intro = "All notable user-facing changes are documented in this file.\n\n"
+              if text.count(intro) != 1:
+                  raise SystemExit("Could not locate changelog introduction")
+              entry = (
+                  "## [1.8.1] - 2026-09-03\n\n"
+                  "### Fixed\n\n"
+                  "- Declared `voluptuous-openapi==0.4.1` as a Home Assistant-managed runtime dependency, preventing startup from failing with `ModuleNotFoundError: No module named 'voluptuous_openapi'` on clean installations.\n"
+                  "- Added the dependency to the test environment so clean CI runners exercise the same import path as Home Assistant.\n\n"
+                  "### Compatibility\n\n"
+                  "- No configuration migration or reauthentication is required.\n"
+                  "- Existing OAuth credentials, assistant profiles, entities, actions, automations, scheduled actions, local skills, and settings remain unchanged.\n"
+                  "- Restart Home Assistant Core after updating so Home Assistant installs and loads the newly declared dependency.\n\n"
+              )
+              text = text.replace(intro, intro + entry, 1)
+          link = "[1.8.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.0...v1.8.1"
+          if link not in text:
+              text = text.rstrip() + "\n" + link + "\n"
+          path.write_text(text, encoding="utf-8")
+          PY
+
+          if git diff --quiet -- CHANGELOG.md; then
+            exit 0
+          fi
+          git config user.name "Julian Rinaldi"
+          git config user.email "julianrinaldi@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "Document the v1.8.1 runtime dependency fix"
+          git push origin HEAD:release/v1.8.1-runtime-dependency
