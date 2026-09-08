@@ -64,7 +64,7 @@ from .exceptions import (
     exception_from_http_response,
     sanitize_backend_message,
 )
-from .image_models import validate_image_model
+from .image_models import migrate_legacy_image_model, validate_image_model
 from .models import (
     get_model_profile,
     normalize_model,
@@ -378,7 +378,9 @@ class ChatGPTOAuthClient:
         """Resolve a request-local override or the account's image model."""
         try:
             return validate_image_model(
-                self.entry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+                migrate_legacy_image_model(
+                    self.entry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+                )
                 if value is None
                 else value
             )

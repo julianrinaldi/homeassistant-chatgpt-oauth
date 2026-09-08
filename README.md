@@ -142,27 +142,28 @@ These model settings follow [OpenAI's Astra model documentation](https://develop
 Under **Settings → Devices & services → ChatGPT OAuth → Reconfigure**, select
 **Image generation model** on the account (default assistant) configuration:
 
-| Image generation model | Request identifier |
+| Image generation model | OAuth request identifier |
 |---|---|
 | GPT Image 2 (default) | `gpt-image-2` |
-| GPT Image 2.5 Flare | `gpt-image-2.5-flare` |
-| GPT Image 2.5 Sunburst | `gpt-image-2.5-sunburst` |
+| GPT Image 2.5 | `gpt-image-2.5` |
 
-The image renderer is independent of the conversation/reasoning model. For
-example, GPT-6 Astra can handle the request while the image-generation tool
-requests GPT Image 2.5 Flare. The renderer is sent as `tools[].model`, not as
-the top-level Responses `model` or as a prompt hint.
+OAuth uses the unified `gpt-image-2.5` identifier. **Flare and Sunburst are API-only
+variants and are not offered here.** This integration does not switch to API-key
+billing. OpenAI's [Images 2.5 announcement](https://openai.com/index/introducing-chatgpt-images-2-5/)
+distinguishes the ChatGPT/Codex release from the separate API variants.
 
-The account's selection applies to native `ai_task.generate_image`, image edits
-with up to ten reference images, and Assist image requests delegated to that
-account's AI Task entity. Existing automations and entity IDs do not change.
-Additional conversation profiles do not have a separate renderer: they use the
-selected AI Task provider's account setting, just as they already do for image
-work. Select the renderer on the account whose AI Task entity the automation or
-Assist tool actually uses.
+The image model is separate from the conversation/reasoning model. For example,
+GPT-6 Astra can coordinate the request while the hosted image tool requests
+GPT Image 2.5. The image identifier is sent in `tools[].model`, not as the top-level
+Responses `model` or as a prompt hint.
+
+The account setting applies to `ai_task.generate_image`, edits with up to ten
+reference images, and Assist image requests delegated to that account's AI Task
+entity. Additional conversation profiles use the selected AI Task provider's
+account setting for image work. Existing automations and entity IDs are unchanged.
 
 **The native `ai_task.generate_image` action does not accept an `image_model`
-field.** Select the account setting instead; continue using the normal action:
+field.** Select the account setting and keep using the normal action:
 
 ```yaml
 action: ai_task.generate_image
@@ -173,24 +174,23 @@ data:
 response_variable: artwork
 ```
 
-Choose your actual AI Task entity ID in the action editor. Model selection is
-captured for each request, so concurrent requests do not mutate the account
-configuration. The entity's `configured_image_model` attribute and integration
-diagnostics show the requested renderer. Returned model metadata uses the
-backend-reported image model when present, otherwise the requested image model;
-it is not independent confirmation of backend routing.
+Choose your actual AI Task entity ID in the action editor. The account's
+`configured_image_model` attribute shows the requested model. Returned model
+metadata uses the backend-reported image model when present, otherwise the
+requested model; it is not independent confirmation of backend routing.
 
-OpenAI's [Images 2.5 announcement](https://openai.com/index/introducing-chatgpt-images-2-5/)
-introduces Flare for faster general-purpose generation and Sunburst for more
-precise creative work with longer generation times. These are image models, not
-new thinking levels. This integration submits the identifiers above through the
-existing hosted image tool. The announcement confirms API availability but does
-not document model-specific selection for this unofficial OAuth backend.
-Live Flare/Sunburst routing has not been independently verified here. Availability
-and access remain controlled by the signed-in account and backend. An unsupported
-model error is surfaced as an error; the integration never removes the selected
-renderer or silently retries another model. Select GPT Image 2 again when the
-new model is not yet available to your account.
+On upgrade from v1.10.0, saved Flare or Sunburst account selections are corrected
+to `gpt-image-2.5`. A saved GPT Image 2 selection remains unchanged, and accounts
+without an image setting still default to GPT Image 2. Credentials, conversation
+profiles, permissions, and other settings are retained. This is a one-time
+configuration correction, not an automatic fallback after a failed image request.
+Explicit API-only model overrides are rejected.
+
+The integration does not remove the selected image model or retry a different
+model after rejection. Actual availability and honoring the tool override depend
+on the signed-in account and unofficial hosted backend. Automated tests exercise
+configuration and request construction; no private OAuth image request has been
+performed as part of release validation.
 
 ## OpenAI web search
 

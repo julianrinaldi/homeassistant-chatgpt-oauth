@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.10.1] - 2026-09-08
+
+### Fixed
+
+- Corrected OAuth image choices to **GPT Image 2** (`gpt-image-2`) and **GPT Image 2.5** (`gpt-image-2.5`). Flare and Sunburst are API-only variants and are no longer offered in the OAuth selector.
+- Upgrade saved v1.10.0 Flare/Sunburst account selections to the unified OAuth identifier before using the account. Explicit API-only request overrides are rejected rather than silently remapped.
+- Preserve GPT Image 2 as the default and retain the separate conversation model, OAuth credentials, profiles, entity IDs, permissions, ten-reference-image limit, and existing automation interfaces.
+- Updated account setup, reconfiguration, reauthentication, request-routing, and configuration-correction regression coverage.
+
+### Upgrade
+
+- Update through HACS and restart Home Assistant Core, then select **GPT Image 2.5** in the account's **Image generation model** setting. No new login is required.
+- Model availability and support for the image-tool override depend on the signed-in account and unofficial backend. No live private OAuth request was used for release validation.
+
 ## [1.10.0] - 2026-09-08
 
 ### Added
@@ -438,3 +452,4 @@ All notable user-facing changes are documented in this file.
 [1.9.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.3...v1.9.0
 
 [1.10.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.9.0...v1.10.0
+[1.10.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.0...v1.10.1

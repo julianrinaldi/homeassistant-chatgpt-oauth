@@ -93,11 +93,10 @@ def _events(monkeypatch, *, reported_model: str | None = None):
     monkeypatch.setattr(client_module, "iter_sse_json", events)
 
 
-def test_catalog_has_only_the_three_requested_renderers() -> None:
+def test_catalog_has_only_the_two_oauth_renderers() -> None:
     assert SUPPORTED_IMAGE_MODELS == (
         "gpt-image-2",
-        "gpt-image-2.5-flare",
-        "gpt-image-2.5-sunburst",
+        "gpt-image-2.5",
     )
     assert not set(IMAGE_MODELS) & set(MODEL_PROFILES)
     assert DEFAULT_IMAGE_MODEL == "gpt-image-2"

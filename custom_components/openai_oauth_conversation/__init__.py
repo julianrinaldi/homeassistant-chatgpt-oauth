@@ -31,6 +31,7 @@ from .const import (
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_ENABLE_SCHEDULED_ACTIONS,
     CONF_ENABLED_LOCAL_SKILLS,
+    CONF_IMAGE_MODEL,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -106,6 +107,7 @@ from .exceptions import (
     StructuredOutputError,
 )
 from .history_tools import create_history_api
+from .image_models import migrate_legacy_image_model
 from .local_skill_runtime import async_resolve_local_skill_scope
 from .local_skills import (
     async_load_local_skill_catalog,
@@ -738,6 +740,12 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one ChatGPT OAuth config entry."""
+    previous_image_model = entry.data.get(CONF_IMAGE_MODEL)
+    image_model = migrate_legacy_image_model(previous_image_model)
+    if image_model != previous_image_model:
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_IMAGE_MODEL: image_model}
+        )
     client = ChatGPTOAuthClient(hass, entry)
     try:
         await client.token_manager.async_get_access_token()

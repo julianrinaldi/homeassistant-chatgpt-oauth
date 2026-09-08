@@ -151,7 +151,7 @@ async def test_english_profile_translations(hass) -> None:
 
 
 @pytest.mark.parametrize(
-    "image_model", ["gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]
+    "image_model", ["gpt-image-2", "gpt-image-2.5", "gpt-image-2.5"]
 )
 async def test_full_user_flow(hass, image_model: str) -> None:
     """Setup links model-specific thinking selection to OAuth validation."""

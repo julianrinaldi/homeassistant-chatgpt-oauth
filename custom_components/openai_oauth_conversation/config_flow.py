@@ -85,7 +85,7 @@ from .exceptions import (
     RequestTimeoutError,
     RequestValidationError,
 )
-from .image_models import IMAGE_MODELS, validate_image_model
+from .image_models import IMAGE_MODELS, migrate_legacy_image_model, validate_image_model
 from .local_skills import async_load_local_skill_catalog
 from .models import (
     MODEL_PROFILES,
@@ -373,7 +373,9 @@ def _account_defaults(source: Mapping[str, Any] | None = None) -> dict[str, Any]
     """Add the account-level image setting without leaking it into profiles."""
     source = source or {}
     defaults = profile_data_defaults(source)
-    defaults[CONF_IMAGE_MODEL] = source.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+    defaults[CONF_IMAGE_MODEL] = migrate_legacy_image_model(
+        source.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+    )
     return defaults
 
 
