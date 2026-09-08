@@ -18,6 +18,7 @@ from custom_components.openai_oauth_conversation.const import (
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_ENABLE_SCHEDULED_ACTIONS,
     CONF_ENABLED_LOCAL_SKILLS,
+    CONF_IMAGE_MODEL,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -149,7 +150,10 @@ async def test_english_profile_translations(hass) -> None:
     ].startswith("Shares only the initiating Home Assistant user's resolved")
 
 
-async def test_full_user_flow(hass) -> None:
+@pytest.mark.parametrize(
+    "image_model", ["gpt-image-2", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]
+)
+async def test_full_user_flow(hass, image_model: str) -> None:
     """Setup links model-specific thinking selection to OAuth validation."""
     skills_path = Path(hass.config.path("openai_oauth_conversation", "skills"))
     await hass.async_add_executor_job(_write_test_skill, skills_path)
@@ -168,6 +172,7 @@ async def test_full_user_flow(hass) -> None:
         result["flow_id"],
         {
             "name": "Primary account",
+            CONF_IMAGE_MODEL: image_model,
             CONF_ENABLE_HASS_CONTROL: False,
             CONF_ENABLE_AI_MEDIA_TOOLS: True,
             CONF_ENABLE_HISTORY_TOOLS: True,
@@ -238,6 +243,7 @@ async def test_full_user_flow(hass) -> None:
 
     assert result["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["title"] == "Primary account"
+    assert result["data"][CONF_IMAGE_MODEL] == image_model
     assert result["data"][CONF_ENABLE_HASS_CONTROL] is False
     assert result["data"][CONF_ENABLE_AI_MEDIA_TOOLS] is True
     assert result["data"][CONF_ENABLE_HISTORY_TOOLS] is True

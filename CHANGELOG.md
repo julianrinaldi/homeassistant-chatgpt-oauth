@@ -2,6 +2,22 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.10.0] - 2026-09-08
+
+### Added
+
+- Independent account-level **Image generation model** selector with GPT Image 2, GPT Image 2.5 Flare, and GPT Image 2.5 Sunburst.
+- Explicit image-tool model routing for native image AI Tasks, reference-image edits, and Assist image requests delegated to the account's AI Task entity, without changing the conversation model.
+- Requested image-model diagnostics and corrected image-result model metadata when the backend omits its model name.
+- Regression coverage for account setup, reconfiguration, reauthentication, separate model catalogs, all image-model request payloads, concurrent selections, ten-image edits, and rejection without silent model substitution.
+
+### Compatibility
+
+- Existing accounts without an image setting request GPT Image 2. Conversation models, reasoning, OAuth credentials, profiles, entity IDs, and automations are retained. No configuration migration is needed.
+- Retains the Core-matched schema converters, clean Home Assistant 2026.9 startup tests, and large-image ASCII request serialization.
+- Flare and Sunburst availability through the unofficial ChatGPT/Codex OAuth endpoint is account/backend dependent and has not been verified with a live authenticated request. No automatic fallback to another image model is performed.
+- Update through HACS and restart Home Assistant Core before selecting a renderer in the account's Reconfigure form.
+
 ## [1.9.0] - 2026-09-08
 
 ### Added
@@ -420,3 +436,5 @@ All notable user-facing changes are documented in this file.
 [1.8.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.2...v1.8.3
 
 [1.9.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.3...v1.9.0
+
+[1.10.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.9.0...v1.10.0

@@ -137,6 +137,61 @@ Astra uses the full Responses request format rather than the GPT-5.6 Responses L
 
 These model settings follow [OpenAI's Astra model documentation](https://developers.openai.com/api/docs/models/gpt-6-astra) and [migration guidance](https://developers.openai.com/api/docs/guides/latest-model). This integration uses an unofficial ChatGPT/Codex OAuth endpoint: an API capability listing does not guarantee that every signed-in account can use it there. Astra access and hosted-tool availability still depend on the account, workspace, and backend. Adding the model does not add Realtime audio, computer use, asynchronous tool execution, or a separate Astra Pro mode.
 
+## Image generation models
+
+Under **Settings → Devices & services → ChatGPT OAuth → Reconfigure**, select
+**Image generation model** on the account (default assistant) configuration:
+
+| Image generation model | Request identifier |
+|---|---|
+| GPT Image 2 (default) | `gpt-image-2` |
+| GPT Image 2.5 Flare | `gpt-image-2.5-flare` |
+| GPT Image 2.5 Sunburst | `gpt-image-2.5-sunburst` |
+
+The image renderer is independent of the conversation/reasoning model. For
+example, GPT-6 Astra can handle the request while the image-generation tool
+requests GPT Image 2.5 Flare. The renderer is sent as `tools[].model`, not as
+the top-level Responses `model` or as a prompt hint.
+
+The account's selection applies to native `ai_task.generate_image`, image edits
+with up to ten reference images, and Assist image requests delegated to that
+account's AI Task entity. Existing automations and entity IDs do not change.
+Additional conversation profiles do not have a separate renderer: they use the
+selected AI Task provider's account setting, just as they already do for image
+work. Select the renderer on the account whose AI Task entity the automation or
+Assist tool actually uses.
+
+**The native `ai_task.generate_image` action does not accept an `image_model`
+field.** Select the account setting instead; continue using the normal action:
+
+```yaml
+action: ai_task.generate_image
+data:
+  entity_id: ai_task.chatgpt_oauth_ai_task
+  task_name: album_cover
+  instructions: Create a square album cover from the supplied concept.
+response_variable: artwork
+```
+
+Choose your actual AI Task entity ID in the action editor. Model selection is
+captured for each request, so concurrent requests do not mutate the account
+configuration. The entity's `configured_image_model` attribute and integration
+diagnostics show the requested renderer. Returned model metadata uses the
+backend-reported image model when present, otherwise the requested image model;
+it is not independent confirmation of backend routing.
+
+OpenAI's [Images 2.5 announcement](https://openai.com/index/introducing-chatgpt-images-2-5/)
+introduces Flare for faster general-purpose generation and Sunburst for more
+precise creative work with longer generation times. These are image models, not
+new thinking levels. This integration submits the identifiers above through the
+existing hosted image tool. The announcement confirms API availability but does
+not document model-specific selection for this unofficial OAuth backend.
+Live Flare/Sunburst routing has not been independently verified here. Availability
+and access remain controlled by the signed-in account and backend. An unsupported
+model error is surfaced as an error; the integration never removes the selected
+renderer or silently retries another model. Select GPT Image 2 again when the
+new model is not yet available to your account.
+
 ## OpenAI web search
 
 The integration uses OpenAI's native Responses API `web_search` tool. Search results can be used by Assist, plain-text AI Tasks, `generate_content`, and `analyze_image`. A separate `web_search` action forces a sourced search and returns citation metadata.

@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.9.0"
+INTEGRATION_VERSION: Final = "1.10.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -34,6 +34,7 @@ CONF_INCLUDE_ROOM_ENTITIES: Final = "include_room_entities"
 CONF_MAX_TOOL_CALLS: Final = "max_tool_calls_per_turn"
 CONF_MAX_TOOL_TIME: Final = "max_total_tool_time"
 CONF_MODEL: Final = "model"
+CONF_IMAGE_MODEL: Final = "image_model"
 CONF_PROMPT: Final = "prompt"
 CONF_REASONING_EFFORT: Final = "reasoning_effort"
 CONF_WEB_SEARCH_MODE: Final = "web_search_mode"
@@ -73,6 +74,7 @@ DEFAULT_INCLUDE_ROOM_ENTITIES: Final = False
 DEFAULT_MAX_TOOL_CALLS: Final = 5
 DEFAULT_MAX_TOOL_TIME: Final = 60
 DEFAULT_MODEL: Final = "gpt-5.6-terra"
+DEFAULT_IMAGE_MODEL: Final = "gpt-image-2"
 DEFAULT_PROMPT: Final = (
     "You are a helpful voice assistant for Home Assistant. "
     "Answer concisely, naturally, and accurately."

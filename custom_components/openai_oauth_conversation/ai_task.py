@@ -68,6 +68,7 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
         return {
             "integration_version": INTEGRATION_VERSION,
             "configured_model": profile.slug,
+            "configured_image_model": client.image_model,
             "configured_thinking_level": client.reasoning_effort,
             "request_reasoning_effort": reasoning_effort_for_request(
                 profile.slug,
@@ -155,9 +156,11 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
 
         client = self._client
         try:
+            image_model = client.image_model
             result = await client.async_create_image_response(
                 model=client.model,
                 reasoning_effort=client.reasoning_effort,
+                image_model=image_model,
                 content=content,
             )
         except ChatGPTOAuthError as err:
@@ -169,7 +172,7 @@ class ChatGPTOAuthTaskEntity(ai_task.AITaskEntity):
             mime_type=result.mime_type,
             width=result.width,
             height=result.height,
-            model=result.model or client.model,
+            model=result.model or image_model,
             revised_prompt=result.revised_prompt,
         )
 

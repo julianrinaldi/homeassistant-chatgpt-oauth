@@ -35,6 +35,7 @@ from .const import (
     CONF_ENABLE_HISTORY_TOOLS,
     CONF_ENABLE_SCHEDULED_ACTIONS,
     CONF_ENABLED_LOCAL_SKILLS,
+    CONF_IMAGE_MODEL,
     CONF_INCLUDE_ROOM_ENTITIES,
     CONF_INCLUDE_SATELLITE_ROOM_CONTEXT,
     CONF_INCLUDE_USER_CONTEXT,
@@ -54,6 +55,7 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+    DEFAULT_IMAGE_MODEL,
     DEFAULT_MEMORY_MAX_CHARACTERS,
     DEFAULT_MEMORY_MAX_TURNS,
     DEFAULT_MODEL,
@@ -83,6 +85,7 @@ from .exceptions import (
     RequestTimeoutError,
     RequestValidationError,
 )
+from .image_models import IMAGE_MODELS, validate_image_model
 from .local_skills import async_load_local_skill_catalog
 from .models import (
     MODEL_PROFILES,
@@ -366,6 +369,57 @@ def _parse_profile_form(
     return name, data
 
 
+def _account_defaults(source: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Add the account-level image setting without leaking it into profiles."""
+    source = source or {}
+    defaults = profile_data_defaults(source)
+    defaults[CONF_IMAGE_MODEL] = source.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+    return defaults
+
+
+def _account_schema(
+    defaults: Mapping[str, Any],
+    *,
+    name_default: str,
+    local_skill_options: list[selector.SelectOptionDict] | None = None,
+) -> vol.Schema:
+    """Show an independent image renderer in account setup/reconfiguration."""
+    profile_fields = _profile_schema(
+        defaults,
+        name_default=name_default,
+        local_skill_options=local_skill_options,
+    ).schema
+    fields: dict[Any, Any] = {}
+    for key, validator in profile_fields.items():
+        fields[key] = validator
+        if key.schema == CONF_MODEL:
+            fields[
+                vol.Optional(
+                    CONF_IMAGE_MODEL,
+                    default=defaults.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
+                )
+            ] = vol.In(IMAGE_MODELS)
+    return vol.Schema(fields)
+
+
+def _parse_account_form(
+    user_input: Mapping[str, Any],
+    *,
+    defaults: Mapping[str, Any],
+    fallback_name: str,
+) -> tuple[str, dict[str, Any]]:
+    """Persist the image model independently of the conversation profile."""
+    name, data = _parse_profile_form(
+        user_input, defaults=defaults, fallback_name=fallback_name
+    )
+    data[CONF_IMAGE_MODEL] = validate_image_model(
+        user_input.get(
+            CONF_IMAGE_MODEL, defaults.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+        )
+    )
+    return name, data
+
+
 class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configure a ChatGPT OAuth account and its default assistant."""
 
@@ -391,11 +445,11 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Collect default assistant behavior before OAuth authentication."""
-        defaults = profile_data_defaults()
+        defaults = _account_defaults()
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                name, data = _parse_profile_form(
+                name, data = _parse_account_form(
                     user_input,
                     defaults=defaults,
                     fallback_name=DEFAULT_NAME,
@@ -408,7 +462,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_profile_schema(
+            data_schema=_account_schema(
                 defaults,
                 name_default=DEFAULT_NAME,
                 local_skill_options=await _async_local_skill_options(
@@ -562,12 +616,12 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Update the default assistant profile."""
         entry = self._get_reconfigure_entry()
-        defaults = profile_data_defaults(entry.data)
+        defaults = _account_defaults(entry.data)
         errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
-                name, data = _parse_profile_form(
+                name, data = _parse_account_form(
                     user_input,
                     defaults=defaults,
                     fallback_name=entry.title,
@@ -580,7 +634,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_profile_schema(
+            data_schema=_account_schema(
                 defaults,
                 name_default=entry.title,
                 local_skill_options=await _async_local_skill_options(
@@ -651,7 +705,7 @@ class ChatGPTOAuthConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Reauthenticate while retaining default-profile settings."""
         entry = self._get_reauth_entry()
-        defaults = profile_data_defaults(entry_data)
+        defaults = _account_defaults(entry_data)
         self._oauth_input = {
             "name": entry.title,
             **defaults,

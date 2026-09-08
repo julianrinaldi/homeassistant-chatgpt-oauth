@@ -22,6 +22,7 @@ from .const import (
     CODEX_RESPONSES_URL,
     CODEX_USER_AGENT,
     CONF_ACCOUNT_ID,
+    CONF_IMAGE_MODEL,
     CONF_MODEL,
     CONF_PROMPT,
     CONF_REASONING_EFFORT,
@@ -31,6 +32,7 @@ from .const import (
     CONF_WEB_SEARCH_MODE,
     CONF_WEB_SEARCH_USE_HASS_LOCATION,
     CONF_WEB_SEARCH_USE_HASS_PRECISE_LOCATION,
+    DEFAULT_IMAGE_MODEL,
     DEFAULT_MAX_TOOL_CALLS,
     DEFAULT_MAX_TOOL_TIME,
     DEFAULT_MODEL,
@@ -44,6 +46,7 @@ from .const import (
     IMAGE_REQUEST_TIMEOUT,
     LEGACY_OUTPUT_LIMIT_KEY,
     LOGGER,
+    MAX_IMAGE_ATTACHMENTS,
     MAX_TOOL_ITERATIONS,
     MAX_WEB_SEARCH_ACTIONS,
     ORIGINATOR,
@@ -61,6 +64,7 @@ from .exceptions import (
     exception_from_http_response,
     sanitize_backend_message,
 )
+from .image_models import validate_image_model
 from .models import (
     get_model_profile,
     normalize_model,
@@ -364,6 +368,22 @@ class ChatGPTOAuthClient:
     def model(self) -> str:
         """Return the configured canonical model."""
         return normalize_model(self.entry.data.get(CONF_MODEL, DEFAULT_MODEL))
+
+    @property
+    def image_model(self) -> str:
+        """Return the account's image-tool model without changing its text model."""
+        return self.resolve_image_model()
+
+    def resolve_image_model(self, value: object | None = None) -> str:
+        """Resolve a request-local override or the account's image model."""
+        try:
+            return validate_image_model(
+                self.entry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+                if value is None
+                else value
+            )
+        except ValueError as err:
+            raise RequestValidationError(str(err)) from err
 
     @property
     def reasoning_effort(self) -> str:
@@ -883,8 +903,17 @@ class ChatGPTOAuthClient:
         model: str,
         content: list[dict[str, Any]],
         reasoning_effort: str | None = None,
+        image_model: str | None = None,
     ) -> ChatGPTImageResponse:
-        """Generate or edit one image with the hosted image tool."""
+        """Generate or edit one image with the explicitly selected image tool."""
+        image_model = self.resolve_image_model(image_model)
+        if (
+            sum(part.get("type") == "input_image" for part in content)
+            > MAX_IMAGE_ATTACHMENTS
+        ):
+            raise RequestValidationError(
+                f"Image generation supports at most {MAX_IMAGE_ATTACHMENTS} attachments"
+            )
         model = self.resolve_model(model)
         reasoning_effort = self.resolve_reasoning_effort(model, reasoning_effort)
         request_effort = reasoning_effort_for_request(model, reasoning_effort)
@@ -901,7 +930,9 @@ class ChatGPTOAuthClient:
 
         # Image generation uses the full Responses request shape, including for
         # models whose text path uses Responses Lite, because the hosted image
-        # tool expects the full transport.
+        # tool expects the full transport. The outer model reasons about the
+        # request; tools[].model selects the image renderer. Never remove an
+        # explicit image model or retry with another renderer after rejection.
         payload: dict[str, Any] = {
             "model": model,
             "instructions": instructions,
@@ -910,6 +941,7 @@ class ChatGPTOAuthClient:
             "tools": [
                 {
                     "type": "image_generation",
+                    "model": image_model,
                     "output_format": "png",
                     "size": "auto",
                     "quality": "auto",

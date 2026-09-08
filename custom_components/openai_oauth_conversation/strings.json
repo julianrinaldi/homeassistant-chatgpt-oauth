@@ -8,6 +8,7 @@
         "data": {
           "name": "Name",
           "model": "Model",
+          "image_model": "Image generation model",
           "enable_home_assistant_control": "Enable Home Assistant control",
           "enable_history_tools": "Use Home Assistant history",
           "enable_ai_media_tools": "Let Assist analyze cameras and create images",
@@ -34,6 +35,7 @@
         "data_description": {
           "name": "A friendly name for this conversation assistant.",
           "model": "The model used by this Assist conversation profile. The default profile's model is also used by AI Task actions and integration actions.",
+          "image_model": "The image renderer used by this account's AI Task entity for new images and edits, including Assist requests delegated to that entity. This is separate from the conversation model. GPT Image 2 is the default. Flare and Sunburst require availability on your signed-in ChatGPT/Codex backend; the integration will not silently substitute another model.",
           "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
           "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
           "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",
@@ -81,6 +83,7 @@
         "data": {
           "name": "Name",
           "model": "Model",
+          "image_model": "Image generation model",
           "enable_home_assistant_control": "Enable Home Assistant control",
           "enable_history_tools": "Use Home Assistant history",
           "enable_ai_media_tools": "Let Assist analyze cameras and create images",
@@ -107,6 +110,7 @@
         "data_description": {
           "name": "A friendly name for this conversation assistant.",
           "model": "The model used by this Assist conversation profile. The default profile's model is also used by AI Task actions and integration actions.",
+          "image_model": "The image renderer used by this account's AI Task entity for new images and edits, including Assist requests delegated to that entity. This is separate from the conversation model. GPT Image 2 is the default. Flare and Sunburst require availability on your signed-in ChatGPT/Codex backend; the integration will not silently substitute another model.",
           "enable_home_assistant_control": "Allow this assistant to inspect and control entities exposed to Assist. Disable this for conversation-only use.",
           "enable_history_tools": "Allows this assistant to answer questions about past states, trends, statistics, and Energy Dashboard data. It can only read data for entities exposed to Assist and cannot change or delete anything.",
           "enable_ai_media_tools": "Lets this assistant use ChatGPT OAuth AI Task to analyze text or exposed camera and image snapshots, and to create or edit images. Cameras are accessed only when you ask. Disabled by default.",

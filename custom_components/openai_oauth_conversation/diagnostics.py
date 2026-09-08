@@ -14,12 +14,15 @@ from .const import (
     CONF_ACCESS_TOKEN,
     CONF_ACCOUNT_ID,
     CONF_EXPIRES,
+    CONF_IMAGE_MODEL,
     CONF_REFRESH_TOKEN,
+    DEFAULT_IMAGE_MODEL,
     DOMAIN,
     INTEGRATION_VERSION,
     MAX_IMAGE_ATTACHMENTS,
     SUBENTRY_TYPE_ASSISTANT,
 )
+from .image_models import IMAGE_MODELS
 from .local_skills import (
     LocalSkillCatalog,
     apply_local_skill_web_search_policy,
@@ -214,6 +217,13 @@ async def async_get_config_entry_diagnostics(
             "modified_at": _serialize_entry_time(getattr(entry, "modified_at", None)),
             "runtime_client_loaded": isinstance(runtime_data, ChatGPTOAuthClient),
             "assistant_profile_count": len(profiles),
+        },
+        "image_generation": {
+            "configured_model": entry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
+            "available_models": list(IMAGE_MODELS),
+            "model_selection_scope": "account_ai_task_provider",
+            "transport": "responses",
+            "automatic_model_fallback": False,
         },
         "authentication": {
             "has_access_token": bool(entry.data.get(CONF_ACCESS_TOKEN)),
