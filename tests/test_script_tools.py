@@ -8,9 +8,11 @@ from homeassistant.core import Context, SupportsResponse
 from homeassistant.helpers import llm
 import pytest
 import voluptuous as vol
-from voluptuous_openapi import convert
 
 from custom_components.openai_oauth_conversation.const import DOMAIN
+from custom_components.openai_oauth_conversation.openapi_compat import (
+    convert_schema as convert,
+)
 from custom_components.openai_oauth_conversation.script_tools import (
     SelectedScriptsAPI,
 )

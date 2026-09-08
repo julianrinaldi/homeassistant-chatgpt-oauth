@@ -14,7 +14,6 @@ from homeassistant.helpers import llm
 from homeassistant.util import dt as dt_util
 import pytest
 import voluptuous as vol
-from voluptuous_openapi import convert
 
 from custom_components.openai_oauth_conversation import (
     scheduled_actions as scheduled_actions_module,
@@ -23,6 +22,9 @@ from custom_components.openai_oauth_conversation.calendar import (
     ScheduledActionsCalendarEntity,
 )
 from custom_components.openai_oauth_conversation.const import DOMAIN
+from custom_components.openai_oauth_conversation.openapi_compat import (
+    convert_schema as convert,
+)
 from custom_components.openai_oauth_conversation.scheduled_actions import (
     EVENT_SCHEDULED_ACTION_FINISHED,
     STATUS_AWAITING_CONFIRMATION,

@@ -2,6 +2,23 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.8.3] - 2026-09-08
+
+### Fixed
+
+- Fixed startup on clean Home Assistant 2026.9 installations by removing the remaining direct `voluptuous_openapi` import from `schema.py`.
+- Routed structured AI Task output schemas and Assist tool schemas through the same Core-matched converter and unsupported-sentinel handling.
+- Preserved strict-output normalization, optional-null validation, and compatibility with older supported Core releases.
+
+### Tests
+
+- Added a Home Assistant 2026.9.1 CI target with `voluptuous-openapi` explicitly uninstalled.
+- Added fresh-process imports of all integration modules, real-selector schema conversion, request-serialization checks, and a guard against direct legacy converter imports.
+
+### Upgrade
+
+- Restart Home Assistant Core after updating. No reauthentication or configuration migration is required.
+
 ## [1.8.2] - 2026-09-03
 
 ### Fixed
@@ -383,3 +400,5 @@ All notable user-facing changes are documented in this file.
 [1.8.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.7.1...v1.8.0
 [1.8.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.0...v1.8.1
 [1.8.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.1...v1.8.2
+
+[1.8.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.2...v1.8.3

@@ -1,4 +1,4 @@
-"""OpenAPI conversion compatibility for Home Assistant LLM tools."""
+"""OpenAPI conversion compatibility for Home Assistant LLM tools and AI Tasks."""
 
 from __future__ import annotations
 
@@ -59,6 +59,26 @@ def _normalize_custom_serializer(
     return _serialize
 
 
+def convert_schema(
+    schema: Any,
+    *,
+    custom_serializer: Callable[[Any], Any] | None = None,
+) -> dict[str, Any]:
+    """Convert a tool or output schema using Core's matching converter.
+
+    Do not import a particular converter here: the running Core owns both
+    the converter and the unsupported sentinel returned by its serializers.
+    """
+    converted = _resolve_converter()(
+        schema,
+        custom_serializer=_normalize_custom_serializer(custom_serializer),
+    )
+    if not isinstance(converted, dict):
+        raise TypeError("the Home Assistant converter did not return an object schema")
+    json.dumps(converted, ensure_ascii=True, allow_nan=False)
+    return converted
+
+
 def convert_tool_parameters(
     parameters: Any,
     custom_serializer: Callable[[Any], Any] | None,
@@ -66,23 +86,9 @@ def convert_tool_parameters(
     tool_name: str,
 ) -> dict[str, Any]:
     """Convert and verify one Home Assistant tool parameter schema."""
-    converter = _resolve_converter()
     try:
-        converted = converter(
-            parameters,
-            custom_serializer=_normalize_custom_serializer(custom_serializer),
-        )
-        if not isinstance(converted, dict):
-            raise TypeError(
-                "the Home Assistant converter did not return an object schema"
-            )
-        json.dumps(
-            converted,
-            ensure_ascii=True,
-            allow_nan=False,
-        )
+        return convert_schema(parameters, custom_serializer=custom_serializer)
     except (TypeError, ValueError) as err:
         raise RequestValidationError(
             f"Could not convert Home Assistant tool schema for {tool_name}: {err}"
         ) from err
-    return converted

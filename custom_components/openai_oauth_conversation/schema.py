@@ -8,9 +8,9 @@ from typing import Any
 from homeassistant.helpers import llm
 from homeassistant.util import slugify
 import voluptuous as vol
-from voluptuous_openapi import convert
 
 from .exceptions import ChatGPTOAuthError, StructuredOutputError
+from .openapi_compat import convert_schema
 
 _SCHEMA_ANNOTATION_KEYS = {
     "$schema",
@@ -131,7 +131,7 @@ def format_structured_output(
 ) -> dict[str, Any]:
     """Convert and normalize a Home Assistant output structure."""
     try:
-        converted = convert(
+        converted = convert_schema(
             structure,
             custom_serializer=(
                 llm_api.custom_serializer if llm_api else llm.selector_serializer
