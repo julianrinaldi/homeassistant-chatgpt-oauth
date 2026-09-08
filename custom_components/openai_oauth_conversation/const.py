@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.8.3"
+INTEGRATION_VERSION: Final = "1.9.0"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"

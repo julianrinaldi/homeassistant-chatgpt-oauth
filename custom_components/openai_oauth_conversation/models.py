@@ -25,6 +25,13 @@ class ModelProfile:
 
 
 MODEL_PROFILES: Final[dict[str, ModelProfile]] = {
+    "gpt-6-astra": ModelProfile(
+        slug="gpt-6-astra",
+        display_name="GPT-6 Astra",
+        reasoning_efforts=("low", "medium", "high", "xhigh", "max"),
+        default_reasoning_effort="low",
+        responses_lite=False,
+    ),
     "gpt-5.6-sol": ModelProfile(
         slug="gpt-5.6-sol",
         display_name="GPT-5.6 Sol",

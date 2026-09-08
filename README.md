@@ -117,6 +117,7 @@ The callback URL contains a short-lived authorization code. Treat it as sensitiv
 
 | Model | Available thinking levels | Default |
 |---|---|---|
+| GPT-6 Astra (`gpt-6-astra`) | Low, Medium, High, Extra high, Max | Low |
 | GPT-5.6 Sol (`gpt-5.6-sol`) | Low, Medium, High, Extra high, Max, Ultra | Low |
 | GPT-5.6 Terra (`gpt-5.6-terra`) | Low, Medium, High, Extra high, Max, Ultra | Medium |
 | GPT-5.6 Luna (`gpt-5.6-luna`) | Low, Medium, High, Extra high, Max | Medium |
@@ -125,6 +126,16 @@ The callback URL contains a short-lived authorization code. Treat it as sensitiv
 The setup and reconfiguration screens only show levels compatible with the selected model. `Ultra` uses the model's `Max` reasoning level; Codex's separate subagent-delegation runtime is not available inside Home Assistant.
 
 Model and web-search availability are controlled by the hosted service and the signed-in account. A listed capability can be temporarily unavailable or restricted by a workspace policy.
+
+### GPT-6 Astra
+
+Select **GPT-6 Astra** when configuring or reconfiguring the account or an assistant profile. Existing model selections are not changed by an upgrade. This integration uses **Low** as Astra's default thinking level for voice-oriented use; choose a higher level when needed.
+
+The canonical model identifier is `gpt-6-astra`. It is accepted by the `model` override on `generate_content`, `analyze_image`, and `web_search`. Native AI Tasks use the account's configured model. Astra is wired into the existing Assist tools, text and structured-data generation, image/PDF analysis, web search, and image-generation/editing paths. Image generation still uses the hosted image-generation tool, including the existing ten-reference-image limit.
+
+Astra uses the full Responses request format rather than the GPT-5.6 Responses Lite path. Only `low`, `medium`, `high`, `xhigh`, and `max` are offered; `none`, `minimal`, and `ultra` are not supported Astra values. Existing source-display settings, entity exposure, permissions, tool limits, and Home Assistant schema-compatibility fixes remain in effect.
+
+These model settings follow [OpenAI's Astra model documentation](https://developers.openai.com/api/docs/models/gpt-6-astra) and [migration guidance](https://developers.openai.com/api/docs/guides/latest-model). This integration uses an unofficial ChatGPT/Codex OAuth endpoint: an API capability listing does not guarantee that every signed-in account can use it there. Astra access and hosted-tool availability still depend on the account, workspace, and backend. Adding the model does not add Realtime audio, computer use, asynchronous tool execution, or a separate Astra Pro mode.
 
 ## OpenAI web search
 

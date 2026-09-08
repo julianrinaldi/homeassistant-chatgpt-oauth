@@ -2,6 +2,22 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.9.0] - 2026-09-08
+
+### Added
+
+- Added GPT-6 Astra (`gpt-6-astra`) to account setup, assistant profiles, reconfiguration, and all action model selectors.
+- Added Astra's supported Low, Medium, High, Extra high, and Max thinking levels, with Low as the integration default for Astra.
+- Routed Astra through full Responses for Assist tools, text and structured AI Tasks, multimodal analysis, web search, and the existing image-generation/editing path.
+- Added regression coverage for model selection, unchanged existing profiles, supported reasoning levels, tool-result continuation, structured data, vision plus web search, and image requests with zero or ten reference images.
+
+### Compatibility
+
+- Existing model selections, prompts, source-display preferences, OAuth credentials, entities, automations, and permissions are unchanged.
+- Retains the v1.8.3 clean-install schema-conversion fixes; no legacy `voluptuous-openapi` dependency is introduced.
+- Astra and hosted-tool access depend on the signed-in ChatGPT account and backend. No live private OAuth account or physical satellite was used for automated validation.
+- Restart Home Assistant Core after updating, then select GPT-6 Astra in the desired account or assistant profile.
+
 ## [1.8.3] - 2026-09-08
 
 ### Fixed
@@ -402,3 +418,5 @@ All notable user-facing changes are documented in this file.
 [1.8.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.1...v1.8.2
 
 [1.8.3]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.2...v1.8.3
+
+[1.9.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.8.3...v1.9.0
