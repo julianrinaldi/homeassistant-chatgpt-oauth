@@ -2,6 +2,18 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.10.2] - 2026-09-08
+
+### Fixed
+
+- Updated the integration's Codex compatibility version from `0.146.1` to `0.153.4` in both request headers, addressing GPT-6 Astra requests rejected with HTTP 400 and "requires a newer version of Codex."
+- The shared correction applies to image generation, image editing, Assist, and text/data AI Tasks. Configured reasoning and image models are preserved.
+
+### Upgrade
+
+- Update ChatGPT OAuth through HACS and restart Home Assistant Core. Updating a separately installed Codex app or CLI does not update the integration's request headers. No reauthentication is required.
+- Live OAuth image generation still needs verification in the signed-in Home Assistant installation.
+
 ## [1.10.1] - 2026-09-08
 
 ### Fixed
@@ -453,3 +465,4 @@ All notable user-facing changes are documented in this file.
 
 [1.10.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.9.0...v1.10.0
 [1.10.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.0...v1.10.1
+[1.10.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.1...v1.10.2

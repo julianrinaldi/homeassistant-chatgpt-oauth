@@ -7,7 +7,7 @@ from typing import Final
 
 DOMAIN: Final = "openai_oauth_conversation"
 INTEGRATION_NAME: Final = "ChatGPT OAuth"
-INTEGRATION_VERSION: Final = "1.10.1"
+INTEGRATION_VERSION: Final = "1.10.2"
 LOGGER = logging.getLogger(__package__)
 
 REPOSITORY_URL: Final = "https://github.com/julianrinaldi/homeassistant-chatgpt-oauth"
@@ -128,9 +128,12 @@ CODEX_RESPONSES_URL: Final = "https://chatgpt.com/backend-api/codex/responses"
 REDIRECT_URI: Final = "http://localhost:1455/auth/callback"
 SCOPE: Final = "openid profile email offline_access"
 
-# The hosted backend expects a Codex-compatible request identity.
+# The hosted backend gates newer models on this Codex-compatible identity.
+# Keep both headers aligned with a released Codex version that supports the
+# model catalog; updating a separately installed app/CLI cannot change them.
+# Compatibility baseline: https://learn.chatgpt.com/docs/changelog (0.153.4).
 ORIGINATOR: Final = "codex_cli_rs"
-CODEX_CLIENT_VERSION: Final = "0.146.1"
+CODEX_CLIENT_VERSION: Final = "0.153.4"
 CODEX_USER_AGENT: Final = (
     f"codex_cli_rs/{CODEX_CLIENT_VERSION} "
     f"(Home Assistant; ChatGPT OAuth/{INTEGRATION_VERSION})"

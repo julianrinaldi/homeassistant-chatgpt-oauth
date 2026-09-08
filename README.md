@@ -796,6 +796,10 @@ Start **Reauthenticate** from the integration entry. Use the newly generated sig
 
 Use **Reconfigure** and select a combination shown by the integration. The hosted service can also restrict a model for a particular account or temporarily remove access.
 
+### GPT-6 Astra requires a newer version of Codex
+
+Update **ChatGPT OAuth** to **1.10.2 or later** through HACS and restart Home Assistant Core. The integration sends its own Codex compatibility version with requests; updating the Codex app or CLI on another computer does not change it. Version 1.10.2 updates that value to `0.153.4`, a release with Astra support in the [official Codex changelog](https://learn.chatgpt.com/docs/changelog). Keep your selected reasoning and image models; no new login is required.
+
 ### Web search is not used
 
 - Confirm the integration's mode is **Automatic** or **Required**.
