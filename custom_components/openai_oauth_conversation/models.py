@@ -32,6 +32,20 @@ MODEL_PROFILES: Final[dict[str, ModelProfile]] = {
         default_reasoning_effort="low",
         responses_lite=False,
     ),
+    "gpt-6-sol": ModelProfile(
+        slug="gpt-6-sol",
+        display_name="GPT-6 Sol",
+        reasoning_efforts=("low", "medium", "high", "xhigh", "max"),
+        default_reasoning_effort="medium",
+        responses_lite=False,
+    ),
+    "gpt-6-luna": ModelProfile(
+        slug="gpt-6-luna",
+        display_name="GPT-6 Luna",
+        reasoning_efforts=("low", "medium", "high", "xhigh", "max"),
+        default_reasoning_effort="medium",
+        responses_lite=False,
+    ),
     "gpt-5.6-sol": ModelProfile(
         slug="gpt-5.6-sol",
         display_name="GPT-5.6 Sol",

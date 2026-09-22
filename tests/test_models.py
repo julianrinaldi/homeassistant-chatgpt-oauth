@@ -20,6 +20,16 @@ from custom_components.openai_oauth_conversation.models import (
     ("model", "levels", "default"),
     [
         (
+            "gpt-6-sol",
+            ("low", "medium", "high", "xhigh", "max"),
+            "medium",
+        ),
+        (
+            "gpt-6-luna",
+            ("low", "medium", "high", "xhigh", "max"),
+            "medium",
+        ),
+        (
             "gpt-5.6-sol",
             ("low", "medium", "high", "xhigh", "max", "ultra"),
             "low",
@@ -67,5 +77,9 @@ def test_incompatible_level_is_rejected() -> None:
     """The selector and runtime share strict model compatibility."""
     with pytest.raises(ValueError, match="not available"):
         validate_reasoning_effort("gpt-5.6-luna", "ultra")
+    with pytest.raises(ValueError, match="not available"):
+        validate_reasoning_effort("gpt-6-luna", "ultra")
+    with pytest.raises(ValueError, match="not available"):
+        validate_reasoning_effort("gpt-6-sol", "ultra")
     with pytest.raises(ValueError, match="not available"):
         validate_reasoning_effort("gpt-5.5", "max")

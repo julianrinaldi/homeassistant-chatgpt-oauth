@@ -118,6 +118,8 @@ The callback URL contains a short-lived authorization code. Treat it as sensitiv
 | Model | Available thinking levels | Default |
 |---|---|---|
 | GPT-6 Astra (`gpt-6-astra`) | Low, Medium, High, Extra high, Max | Low |
+| GPT-6 Sol (`gpt-6-sol`) | Low, Medium, High, Extra high, Max | Medium |
+| GPT-6 Luna (`gpt-6-luna`) | Low, Medium, High, Extra high, Max | Medium |
 | GPT-5.6 Sol (`gpt-5.6-sol`) | Low, Medium, High, Extra high, Max, Ultra | Low |
 | GPT-5.6 Terra (`gpt-5.6-terra`) | Low, Medium, High, Extra high, Max, Ultra | Medium |
 | GPT-5.6 Luna (`gpt-5.6-luna`) | Low, Medium, High, Extra high, Max | Medium |
@@ -126,6 +128,16 @@ The callback URL contains a short-lived authorization code. Treat it as sensitiv
 The setup and reconfiguration screens only show levels compatible with the selected model. `Ultra` uses the model's `Max` reasoning level; Codex's separate subagent-delegation runtime is not available inside Home Assistant.
 
 Model and web-search availability are controlled by the hosted service and the signed-in account. A listed capability can be temporarily unavailable or restricted by a workspace policy.
+
+### GPT-6 Sol and Luna
+
+Select either model in the account or assistant profile's **Reconfigure** screen, or use `gpt-6-sol` or `gpt-6-luna` as the `model` override on **Generate content**, **Analyze image**, and **Web search**. Native AI Tasks use the account's selected model. Existing model selections and the separate image generation model are preserved on upgrade.
+
+Both models use the full Responses request format for text, structured data, Assist tools, web search, and image analysis. Image generation and editing keep using the separately selected GPT Image tool. The integration offers Low through Max thinking levels for both models; it does not implement Codex's separate Ultra delegation runtime. Medium is the default for each new model.
+
+These identifiers follow OpenAI's [GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) and [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) documentation. This integration currently offers Low through Max for each model. Availability through this unofficial OAuth endpoint depends on the signed-in account, workspace settings, and rollout. Update through HACS and restart Home Assistant before selecting a new model.
+
+This release sends `0.155.1` in the Codex-compatible request `version` and `User-Agent` headers, matching the newest CLI version listed in the [official Codex changelog](https://learn.chatgpt.com/docs/changelog) when this release was prepared. Home Assistant sends requests itself, so no separate Codex CLI installation is needed. A newer client identity alone cannot grant model access before the account's rollout reaches the hosted backend.
 
 ### GPT-6 Astra
 

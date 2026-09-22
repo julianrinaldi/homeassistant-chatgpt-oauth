@@ -25,6 +25,10 @@ generate_content:
           options:
             - label: GPT-6 Astra
               value: gpt-6-astra
+            - label: GPT-6 Sol
+              value: gpt-6-sol
+            - label: GPT-6 Luna
+              value: gpt-6-luna
             - label: GPT-5.6 Sol
               value: gpt-5.6-sol
             - label: GPT-5.6 Terra
@@ -35,7 +39,7 @@ generate_content:
               value: gpt-5.5
     reasoning_effort:
       name: Thinking level
-      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra supports low, medium, high, xhigh, and max; not ultra.
+      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra, Sol, and Luna offer low, medium, high, xhigh, and max in this integration.
       required: false
       selector:
         select:
@@ -139,6 +143,10 @@ analyze_image:
           options:
             - label: GPT-6 Astra
               value: gpt-6-astra
+            - label: GPT-6 Sol
+              value: gpt-6-sol
+            - label: GPT-6 Luna
+              value: gpt-6-luna
             - label: GPT-5.6 Sol
               value: gpt-5.6-sol
             - label: GPT-5.6 Terra
@@ -149,7 +157,7 @@ analyze_image:
               value: gpt-5.5
     reasoning_effort:
       name: Thinking level
-      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra supports low, medium, high, xhigh, and max; not ultra.
+      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra, Sol, and Luna offer low, medium, high, xhigh, and max in this integration.
       required: false
       selector:
         select:
@@ -277,6 +285,10 @@ web_search:
           options:
             - label: GPT-6 Astra
               value: gpt-6-astra
+            - label: GPT-6 Sol
+              value: gpt-6-sol
+            - label: GPT-6 Luna
+              value: gpt-6-luna
             - label: GPT-5.6 Sol
               value: gpt-5.6-sol
             - label: GPT-5.6 Terra
@@ -287,7 +299,7 @@ web_search:
               value: gpt-5.5
     reasoning_effort:
       name: Thinking level
-      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra supports low, medium, high, xhigh, and max; not ultra.
+      description: Optional per-call override. It must be supported by the selected model. GPT-6 Astra, Sol, and Luna offer low, medium, high, xhigh, and max in this integration.
       required: false
       selector:
         select:

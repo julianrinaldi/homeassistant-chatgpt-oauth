@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [1.11.0] - 2026-09-22
+
+### Added
+
+- Added GPT-6 Sol (`gpt-6-sol`) and GPT-6 Luna (`gpt-6-luna`) to account setup, assistant profiles, reconfiguration, and all three action model selectors.
+- Offered Low, Medium, High, Extra high, and Max thinking levels for each new model, with Medium as their default. GPT-6 Luna does not offer Ultra; Home Assistant does not provide Codex's Ultra delegation runtime for Sol.
+- Routed both models through the full Responses request format for Assist, AI Tasks, web search, and existing image generation/editing. The image renderer remains a separate account setting.
+- Updated both integration-owned Codex compatibility headers to `0.155.1`, the newest CLI version listed in OpenAI's changelog at release preparation. Home Assistant does not require a separate Codex CLI installation.
+
+### Upgrade
+
+- Update through HACS and restart Home Assistant Core, then select the new model in the account or assistant profile. Existing model choices, credentials, permissions, entity IDs, and automations are preserved.
+- Availability still depends on the signed-in account, workspace settings, and backend rollout. Live authenticated model requests must be verified after installation.
+
 ## [1.10.2] - 2026-09-08
 
 ### Fixed
@@ -466,3 +480,4 @@ All notable user-facing changes are documented in this file.
 [1.10.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.9.0...v1.10.0
 [1.10.1]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.0...v1.10.1
 [1.10.2]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.1...v1.10.2
+[1.11.0]: https://github.com/julianrinaldi/homeassistant-chatgpt-oauth/compare/v1.10.2...v1.11.0

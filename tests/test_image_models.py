@@ -151,7 +151,9 @@ def test_existing_accounts_default_to_image_2(hass) -> None:
 
 @pytest.mark.parametrize("model", SUPPORTED_IMAGE_MODELS)
 @pytest.mark.parametrize("image_count", [0, 10])
-@pytest.mark.parametrize("reasoning_model", [ASTRA, "gpt-5.6-terra"])
+@pytest.mark.parametrize(
+    "reasoning_model", [ASTRA, "gpt-6-sol", "gpt-6-luna", "gpt-5.6-terra"]
+)
 async def test_actual_request_and_image_decoding(
     hass, monkeypatch, model: str, image_count: int, reasoning_model: str
 ) -> None:
